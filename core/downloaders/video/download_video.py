@@ -1,16 +1,14 @@
-# save as: download_audio.py
+# save as: download_video.py
 import sys
-import os
-import tempfile
-from yt_dlp import YoutubeDL
+from ..shared_downloader import download_video as shared_download_video
 
 def download_video(url: str, output_dir: str = None) -> dict:
     """
-    Download audio from YouTube URL.
+    Download video from YouTube URL using shared downloader.
     
     Args:
         url: YouTube URL to download
-        output_dir: Directory to save file (defaults to temp directory)
+        output_dir: Directory to save file (defaults to current working directory)
     
     Returns:
         dict: {
@@ -20,51 +18,15 @@ def download_video(url: str, output_dir: str = None) -> dict:
             'error': str or None
         }
     """
-    if output_dir is None:
-        output_dir = os.getcwd()  # Save to current working directory
+    result = shared_download_video(url, output_dir)
     
-    outtmpl = os.path.join(output_dir, "%(title)s.%(ext)s")
-    
-    ydl_opts = {
-        "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo[ext=mp4]/best[ext=mp4]/best",
-        "outtmpl": outtmpl,
-        "noplaylist": True,
-        "quiet": True,
-        "nocheckcertificate": True,
-        "restrictfilenames": True,  # Restrict to ASCII characters only
-        "merge_output_format": "mp4",  # Merge video and audio into MP4
+    # Return in the original format for backward compatibility
+    return {
+        'success': result['success'],
+        'filepath': result['filepath'],
+        'filename': result['filename'],
+        'error': result['error']
     }
-    
-    try:
-        with YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            filepath = ydl.prepare_filename(info)
-        
-        # Check if file was actually created
-        if not filepath or not os.path.exists(filepath):
-            return {
-                'success': False,
-                'filepath': None,
-                'filename': None,
-                'error': 'Download failed - file not created'
-            }
-        
-        filename = os.path.basename(filepath)
-        
-        return {
-            'success': True,
-            'filepath': filepath,
-            'filename': filename,
-            'error': None
-        }
-        
-    except Exception as e:
-        return {
-            'success': False,
-            'filepath': None,
-            'filename': None,
-            'error': str(e)
-        }
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
