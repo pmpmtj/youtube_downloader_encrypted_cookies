@@ -1,0 +1,230 @@
+--- a/youtube_downloader/settings.py
++++ b/youtube_downloader/settings.py
+@@ -1,200 +1,226 @@
+-from pathlib import Path
++from pathlib import Path
+-INSTALLED_APPS = [
+-    'django.contrib.admin',
+-    'django.contrib.auth',
+-    'django.contrib.contenttypes',
+-    'django.contrib.sessions',
+-    'django.contrib.messages',
+-    'django.contrib.staticfiles',
+-    'audio_dl'
+-]
++INSTALLED_APPS = [
++    'django.contrib.admin',
++    'django.contrib.auth',
++    'django.contrib.contenttypes',
++    'django.contrib.sessions',
++    'django.contrib.messages',
++    'django.contrib.staticfiles',
++    'audio_dl',
++    # Background tasks dashboard & integration (Redis + RQ)
++    'django_rq',
++]
+-STATIC_URL = '/youtube_downloader/static/'
++STATIC_URL = '/youtube_downloader/static/'
++
++# ---- Media (for storing finished downloads) ----
++# Served by Django in DEBUG only (see urls.py)
++MEDIA_URL = '/media/'
++MEDIA_ROOT = BASE_DIR / 'media'
++
++# ---- django-rq queues (Redis required) ----
++# Minimal setup using a local Redis server on DB 0
++RQ_QUEUES = {
++    'default': {
++        'URL': 'redis://127.0.0.1:6379/0',
++        # Keep results for 1 day so clients can fetch the file later
++        'DEFAULT_TIMEOUT': 900,  # 15 minutes
++        'RESULT_TTL': 86400,
++        'FAILURE_TTL': 86400,
++    },
++}
+-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
++DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+--- a/youtube_downloader/urls.py
++++ b/youtube_downloader/urls.py
+@@ -1,6 +1,11 @@
+-from django.contrib import admin
+-from django.urls import path, include
++from django.contrib import admin
++from django.urls import path, include
++from django.conf import settings
++from django.conf.urls.static import static
+ 
+ urlpatterns = [
+     path("", include("audio_dl.urls")),
+-]
++    path("admin/", admin.site.urls),
++    path("django-rq/", include("django_rq.urls")),
++]
++if settings.DEBUG:
++    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+--- a/audio_dl/urls.py
++++ b/audio_dl/urls.py
+@@ -1,6 +1,12 @@
+ from django.urls import path
+ from . import views
++from . import api
+ 
+ urlpatterns = [
+     path("", views.index, name="index"),
++    # Existing synchronous download endpoint stays intact
++    path("api/download-audio/", api.download_audio_api, name="download_audio_api"),
++    # New: asynchronous background download API (django-rq)
++    path("api/download-audio-async/", api.download_audio_api_async, name="download_audio_api_async"),
++    path("api/jobs/<str:job_id>/", api.job_status, name="job_status"),
++    path("api/jobs/<str:job_id>/result/", api.job_result, name="job_result"),
+ ]
+
+--- a/audio_dl/api.py
++++ b/audio_dl/api.py
+@@ -1,60 +1,143 @@
+ from rest_framework.decorators import api_view
+ from rest_framework.response import Response
+ from rest_framework import status
+ from django.http import FileResponse
+ from core.downloaders.audio.download_audio import download_audio
+ 
+ @api_view(["POST"])
+ def download_audio_api(request):
+     url = (request.data.get("url") or "").strip()
+     if not url:
+         return Response({"detail": "Missing 'url'"}, status=status.HTTP_400_BAD_REQUEST)
+ 
+     # Use the core download function
+     result = download_audio(url)
+     
+     if not result['success']:
+         return Response({"detail": result['error']}, status=status.HTTP_400_BAD_REQUEST)
+     
+     # Return the file
+     fileobj = open(result['filepath'], "rb")
+     return FileResponse(fileobj, as_attachment=True, filename=result['filename'])
++
++# ---------------------- NEW: Async endpoints (django-rq) ----------------------
++from django.urls import reverse
++from django_rq import get_queue, get_connection
++from rq.job import Job
++from rq.exceptions import NoSuchJobError
++
++
++@api_view(["POST"])
++def download_audio_api_async(request):
++    """Queue an audio download job and return a job id (HTTP 202)."""
++    url = (request.data.get("url") or "").strip()
++    if not url:
++        return Response({"detail": "Missing 'url'"}, status=status.HTTP_400_BAD_REQUEST)
++
++    queue = get_queue("default")
++    job = queue.enqueue("audio_dl.tasks.process_youtube_audio", url, result_ttl=86400, failure_ttl=86400, timeout=900)
++
++    status_url = request.build_absolute_uri(reverse("job_status", args=[job.id]))
++    result_url = request.build_absolute_uri(reverse("job_result", args=[job.id]))
++
++    return Response({
++        "job_id": job.id,
++        "status": job.get_status(),
++        "status_url": status_url,
++        "result_url": result_url,
++    }, status=status.HTTP_202_ACCEPTED)
++
++
++@api_view(["GET"])
++def job_status(request, job_id: str):
++    """Return current job status and (if finished) the result dict."""
++    conn = get_connection("default")
++    try:
++        job = Job.fetch(job_id, connection=conn)
++    except NoSuchJobError:
++        return Response({"detail": "Unknown job_id"}, status=status.HTTP_404_NOT_FOUND)
++
++    data = {
++        "job_id": job.id,
++        "status": job.get_status(),
++        "enqueued_at": job.enqueued_at.isoformat() if job.enqueued_at else None,
++        "started_at": job.started_at.isoformat() if getattr(job, "started_at", None) else None,
++        "ended_at": job.ended_at.isoformat() if getattr(job, "ended_at", None) else None,
++    }
++    if job.is_finished:
++        data["result"] = job.result
++    if job.is_failed:
++        data["exc_info"] = job.exc_info
++    return Response(data)
++
++
++@api_view(["GET"])
++def job_result(request, job_id: str):
++    """If job finished successfully, stream the generated file."""
++    conn = get_connection("default")
++    try:
++        job = Job.fetch(job_id, connection=conn)
++    except NoSuchJobError:
++        return Response({"detail": "Unknown job_id"}, status=status.HTTP_404_NOT_FOUND)
++
++    if not job.is_finished:
++        return Response({"detail": "Job not finished"}, status=status.HTTP_202_ACCEPTED)
++
++    result = job.result or {}
++    filepath = (result or {}).get("filepath")
++    filename = (result or {}).get("filename")
++    if not filepath or not filename:
++        return Response({"detail": "No file available"}, status=status.HTTP_400_BAD_REQUEST)
++
++    try:
++        fileobj = open(filepath, "rb")
++    except OSError:
++        return Response({"detail": "File not found on disk"}, status=status.HTTP_410_GONE)
++
++    return FileResponse(fileobj, as_attachment=True, filename=filename)
+
+--- /dev/null
++++ b/audio_dl/tasks.py
+@@ -0,0 +1,44 @@
++"""Background tasks for audio downloads (django-rq).
++
++This module defines a single task function that can be enqueued via
++django-rq. It downloads the YouTube audio to MEDIA_ROOT/downloads/audio
++and returns a small result dict suitable for APIs.
++"""
++
++from pathlib import Path
++from typing import Dict, Any
++
++from django.conf import settings
++
++# Reuse your existing core downloader
++# (keeps behavior identical between sync and async paths)
++from core.downloaders.audio.download_audio import download_audio
++
++
++def process_youtube_audio(url: str) -> Dict[str, Any]:
++    """Download audio for the given URL into MEDIA_ROOT/downloads/audio.
++
++    Returns the same shape your sync API already uses:
++    {
++        'success': bool,
++        'filepath': str|None,
++        'filename': str|None,
++        'error': str|None
++    }
++    """
++    # Ensure output directory exists
++    output_dir = Path(settings.MEDIA_ROOT) / 'downloads' / 'audio'
++    output_dir.mkdir(parents=True, exist_ok=True)
++
++    # Delegate to the shared downloader
++    result = download_audio(url, output_dir=str(output_dir))
++
++    # Normalize result (defensive) and return
++    if not isinstance(result, dict):
++        return {
++            'success': False,
++            'filepath': None,
++            'filename': None,
++            'error': 'Unexpected downloader response',
++        }
++    return result

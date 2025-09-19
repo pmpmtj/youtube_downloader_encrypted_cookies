@@ -37,7 +37,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'audio_dl'
+    'audio_dl',
+    # Alternative: Use django-background-tasks (no Redis required)
+    'background_task',
 ]
 
 MIDDLEWARE = [
@@ -116,6 +118,15 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = '/youtube_downloader/static/'
+
+# ---- Media (for storing finished downloads) ----
+# Served by Django in DEBUG only (see urls.py)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+# ---- Background tasks configuration (no Redis required) ----
+# django-background-tasks uses database for task storage
+BACKGROUND_TASK_RUN_ASYNC = True
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
