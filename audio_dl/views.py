@@ -39,6 +39,7 @@ def index(request):
 
             # Save a copy to the server's current working directory (cwd)
             filename = os.path.basename(filepath)
+            
             # uncomment the following 3 lines if you want to save a copy on the server automatically
             dest_path = os.path.join(os.getcwd(), filename)
             with open(filepath, "rb") as src, open(dest_path, "wb") as dst:
