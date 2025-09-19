@@ -42,13 +42,13 @@ def resolve_path(path_input: Union[str, Path], base_dir: Optional[Path] = None) 
 
     Args:
         path_input: String or Path object to resolve
-        base_dir: Base directory to resolve relative paths against (defaults to SCRIPT_DIR from get_script_directories())
+        base_dir: Base directory to resolve relative paths against (defaults to current working directory)
 
     Returns:
         Resolved absolute Path object
     """
     if base_dir is None:
-        _, base_dir = get_script_directories()
+        base_dir = Path.cwd()
 
     path = Path(path_input)
 

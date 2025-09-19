@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 from django.http import FileResponse
-from core.downloaders.download_audio import download_audio
+from core.downloaders.audio.download_audio import download_audio
 
 @api_view(["POST"])
 def download_audio_api(request):
