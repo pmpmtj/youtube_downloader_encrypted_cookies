@@ -21,7 +21,7 @@ def download_audio(url: str, output_dir: str = None) -> dict:
         }
     """
     if output_dir is None:
-        output_dir = tempfile.mkdtemp(prefix="yt_")
+        output_dir = os.getcwd()  # Save to current working directory
     
     outtmpl = os.path.join(output_dir, "%(title)s.%(ext)s")
     
@@ -31,6 +31,7 @@ def download_audio(url: str, output_dir: str = None) -> dict:
         "noplaylist": True,
         "quiet": True,
         "nocheckcertificate": True,
+        "restrictfilenames": True,  # Restrict to ASCII characters only
     }
     
     try:
