@@ -1,7 +1,7 @@
 # youtube_downloader/audio_dl/views.py
-from django.http import HttpResponseBadRequest
+from django.http import HttpResponseBadRequest, FileResponse
 from django.shortcuts import render
-from . import api
+from core.downloaders.audio.download_audio import download_audio
 
 def index(request):
     if request.method == "POST":
@@ -9,17 +9,17 @@ def index(request):
         if not url:
             return HttpResponseBadRequest("Missing URL.")
 
-        # Create a mock DRF request object to call the API internally
-        class MockRequest:
-            def __init__(self, data):
-                self.data = data
-        
-        mock_request = MockRequest({"url": url})
-        
-        # Call the API function directly
+        # Call the core download function directly
         try:
-            response = api.download_audio_api(mock_request)
-            return response
+            result = download_audio(url)
+            
+            if not result['success']:
+                return HttpResponseBadRequest(f"Error: {result['error']}")
+            
+            # Return the file
+            fileobj = open(result['filepath'], "rb")
+            return FileResponse(fileobj, as_attachment=True, filename=result['filename'])
+            
         except Exception as e:
             return HttpResponseBadRequest(f"Error: {e}")
 

@@ -1,7 +1,4 @@
 yt-dlp==2025.9.5
 Django==5.2
 djangorestframework==3.16.1
-redis==6.4.0
-rq==2.6.0
-django-rq==3.1
-django-background-tasks
+django-background-tasks==1.2.8

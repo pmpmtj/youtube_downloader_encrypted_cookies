@@ -57,22 +57,28 @@ def download_audio_api_async(request):
 def job_status(request, job_id: str):
     """Return current task status."""
     try:
-        # Try to find the task by ID in the task name/description
-        task = Task.objects.filter(task_name__icontains=job_id).first()
+        # Look for task by checking task_params for the task_id
+        task = Task.objects.filter(task_params__icontains=job_id).first()
+        
         if not task:
+            # Also check completed tasks
+            from background_task.models import CompletedTask
+            completed_task = CompletedTask.objects.filter(task_params__icontains=job_id).first()
+            if completed_task:
+                return Response({
+                    "task_id": job_id,
+                    "status": "completed",
+                    "run_at": completed_task.run_at.isoformat() if completed_task.run_at else None,
+                    "locked_at": completed_task.locked_at.isoformat() if completed_task.locked_at else None,
+                })
             return Response({"detail": "Unknown task_id"}, status=status.HTTP_404_NOT_FOUND)
 
         data = {
             "task_id": job_id,
-            "status": "completed" if task.task_params else "running",
-            "created_at": task.created_at.isoformat() if task.created_at else None,
+            "status": "running" if task.locked_at is None else "completed",
             "run_at": task.run_at.isoformat() if task.run_at else None,
+            "locked_at": task.locked_at.isoformat() if task.locked_at else None,
         }
-        
-        # Check if task has result stored (this is a simplified approach)
-        if task.task_params:
-            # Task completed - you could store results in a custom model
-            data["status"] = "completed"
             
         return Response(data)
     except Exception as e:
@@ -83,11 +89,17 @@ def job_status(request, job_id: str):
 def job_result(request, job_id: str):
     """If task finished successfully, stream the generated file."""
     try:
-        task = Task.objects.filter(task_name__icontains=job_id).first()
-        if not task:
-            return Response({"detail": "Unknown task_id"}, status=status.HTTP_404_NOT_FOUND)
-
-        if not task.task_params:
+        # Look for task by checking task_params for the task_id
+        from background_task.models import CompletedTask
+        
+        # Check if task is completed
+        completed_task = CompletedTask.objects.filter(task_params__icontains=job_id).first()
+        
+        if not completed_task:
+            # Check if task is still running
+            task = Task.objects.filter(task_params__icontains=job_id).first()
+            if not task:
+                return Response({"detail": "Unknown task_id"}, status=status.HTTP_404_NOT_FOUND)
             return Response({"detail": "Task not completed"}, status=status.HTTP_202_ACCEPTED)
 
         # For this simplified implementation, we'll look for the file in the media directory
@@ -101,8 +113,12 @@ def job_result(request, job_id: str):
         if not files:
             return Response({"detail": "No file available"}, status=status.HTTP_400_BAD_REQUEST)
         
-        # Get the most recent file
-        latest_file = max(files, key=lambda f: os.path.getctime(os.path.join(media_dir, f)))
+        # Get the most recent audio file (exclude metadata files)
+        audio_files = [f for f in files if not f.endswith('_metadata.json') and not f.startswith('.')]
+        if not audio_files:
+            return Response({"detail": "No audio file available"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        latest_file = max(audio_files, key=lambda f: os.path.getctime(os.path.join(media_dir, f)))
         filepath = os.path.join(media_dir, latest_file)
         
         try:
