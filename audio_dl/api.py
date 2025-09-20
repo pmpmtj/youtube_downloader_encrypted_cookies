@@ -26,14 +26,14 @@ def download_audio_api(request):
     # Get user-specific download directory
     user_download_dir = request.user.get_download_directory()
     
+    # Check if user wants to download to remote (from request data)
+    download_to_remote = request.data.get('download_to_remote', True)
+    
     # Use the core download function with user-specific directory
     result = download_audio(url, output_dir=str(user_download_dir))
     
     if not result['success']:
         return Response({"detail": result['error']}, status=status.HTTP_400_BAD_REQUEST)
-    
-    # Check if we should download to remote location (client)
-    download_to_remote = APP_CONFIG.get("download", {}).get("download_to_remote_location", "True").lower() == "true"
     
     if download_to_remote:
         # Return the file (current behavior - download dialog)

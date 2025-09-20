@@ -16,15 +16,15 @@ def index(request):
         # Get user-specific download directory
         user_download_dir = request.user.get_download_directory()
         
+        # Check if user wants to download to remote (checkbox state)
+        download_to_remote = request.POST.get('download_to_remote') == 'on'
+        
         # Call the core download function with user-specific directory
         try:
             result = download_audio(url, output_dir=str(user_download_dir))
             
             if not result['success']:
                 return HttpResponseBadRequest(f"Error: {result['error']}")
-            
-            # Check if we should download to remote location (client)
-            download_to_remote = APP_CONFIG.get("download", {}).get("download_to_remote_location", "True").lower() == "true"
             
             if download_to_remote:
                 # Return the file (current behavior - download dialog)
