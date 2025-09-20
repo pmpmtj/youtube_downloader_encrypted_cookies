@@ -30,7 +30,10 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-s3!ida*5lt&r)cd8fd&-ty%=l#
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["*"]
+# Configure ALLOWED_HOSTS for multi-user access
+# For development with public access, allow all hosts
+# In production, specify your domain name or IP address
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(',')
 
 
 # Application definition
@@ -58,6 +61,10 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # Custom security middleware for multi-user access
+    'core.shared_utils.security_utils.SecurityMiddleware',
+    # Rate limiting for public access
+    'core.shared_utils.rate_limiting.RateLimitMiddleware',
 ]
 
 ROOT_URLCONF = 'youtube_downloader.urls'
@@ -125,6 +132,9 @@ USE_I18N = True
 
 USE_TZ = True
 
+# Configure timezone handling for better datetime management
+USE_L10N = True
+
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
@@ -161,4 +171,30 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
+}
+
+# Security settings for multi-user access
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin'
+
+# Session security
+SESSION_COOKIE_SECURE = False  # Set to True in production with HTTPS
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_AGE = 3600  # 1 hour session timeout
+
+# CSRF settings for multi-user access
+CSRF_COOKIE_SECURE = False  # Set to True in production with HTTPS
+CSRF_COOKIE_HTTPONLY = True
+CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', '').split(',') if os.getenv('CSRF_TRUSTED_ORIGINS') else []
+
+# Caching for rate limiting and session management
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'youtube-downloader-cache',
+        'TIMEOUT': 3600,  # 1 hour default timeout
+        'OPTIONS': {
+            'MAX_ENTRIES': 1000,
+        }
+    }
 }

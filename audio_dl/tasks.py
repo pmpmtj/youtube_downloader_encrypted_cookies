@@ -14,6 +14,7 @@ from django.conf import settings
 # (keeps behavior identical between sync and async paths)
 from core.downloaders.audio.download_audio import download_audio
 from core.shared_utils.url_utils import YouTubeURLSanitizer, YouTubeURLError
+from core.shared_utils.cookie_manager import get_user_cookies
 
 
 @background(schedule=0)  # Run immediately
@@ -53,6 +54,9 @@ def process_youtube_audio(url: str, task_id: str = None, output_dir: str = None,
         # Ensure output directory exists
         output_path.mkdir(parents=True, exist_ok=True)
 
+        # Get user cookies for authentication
+        user_cookies = get_user_cookies(user) if user else None
+        
         # Delegate to the shared downloader with database logging
         result = download_audio(
             url, 
@@ -61,7 +65,8 @@ def process_youtube_audio(url: str, task_id: str = None, output_dir: str = None,
             user_ip=user_ip,
             user_agent=user_agent,
             download_source='api_async',
-            task_id=task_id
+            task_id=task_id,
+            user_cookies=user_cookies
         )
 
         # Log the result

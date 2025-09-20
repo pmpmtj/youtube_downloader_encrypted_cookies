@@ -304,12 +304,152 @@ python manage.py process_tasks
 - **psycopg2**: PostgreSQL adapter (if using PostgreSQL)
 - **python-dotenv**: Environment variable management
 
+## 🍪 Cookie Management
+
+### Why Use Cookies?
+
+YouTube uses sophisticated bot detection that can block automated downloads. By uploading your browser cookies, you can:
+- **Bypass bot detection**: Make your downloads appear as regular user requests
+- **Access age-restricted content**: Download videos that require authentication
+- **Improve download reliability**: Reduce rate limiting and blocking
+- **Maintain session state**: Keep your YouTube session active during downloads
+
+### How to Upload Cookies
+
+#### Method 1: File Upload (Recommended)
+
+1. **Export cookies from your browser**:
+   - **Chrome/Edge**: Install "Get cookies.txt" extension
+   - **Firefox**: Install "cookies.txt" extension
+   
+2. **Export process**:
+   - Make sure you're logged into YouTube in your browser
+   - Go to YouTube.com
+   - Click the extension icon
+   - Click "Export" and save as `cookies.txt`
+
+3. **Upload to the application**:
+   - Go to your dashboard: `http://127.0.0.1:8000/accounts/dashboard/`
+   - Click "Cookie Management"
+   - Select your `cookies.txt` file
+   - Click "Upload Cookies"
+
+#### Method 2: Paste Cookie Content
+
+1. **Copy cookie content**:
+   - Open your `cookies.txt` file in a text editor
+   - Select all content (Ctrl+A)
+   - Copy to clipboard (Ctrl+C)
+
+2. **Paste in the application**:
+   - Go to Cookie Management page
+   - Paste the content in the text area
+   - Click "Paste Cookies"
+
+### Cookie Management Features
+
+#### Security & Privacy
+- **Encrypted Storage**: All cookies are encrypted using Fernet encryption
+- **User-Specific**: Each user's cookies are stored separately
+- **Automatic Expiry**: Cookies expire after 7 days for security
+- **Secure Permissions**: Cookie files have restricted access (600 permissions)
+
+#### Cookie Status Monitoring
+- **Real-time Status**: See if cookies are active and when they expire
+- **Upload History**: Track when cookies were uploaded and from which source
+- **Expiry Warnings**: Get notified when cookies are about to expire
+- **Easy Management**: Delete old cookies and upload new ones
+
+#### Supported Cookie Formats
+- **Netscape Format**: Standard format used by most browser extensions
+- **YouTube/Google Domains**: Automatically validates YouTube and Google cookies
+- **Format Validation**: Ensures cookie file is properly formatted before storage
+
+### Cookie Management API
+
+#### Check Cookie Status
+```powershell
+# Get current cookie status
+$response = Invoke-WebRequest -Uri "http://localhost:8000/accounts/cookie-api/" -Method GET -Headers @{"Authorization"="Bearer YOUR_TOKEN"}
+$cookieStatus = $response.Content | ConvertFrom-Json
+Write-Host "Has cookies: $($cookieStatus.has_cookies)"
+Write-Host "Expires: $($cookieStatus.expires_at)"
+```
+
+#### Upload Cookies via API
+```powershell
+# Upload cookie file via API
+$cookieContent = Get-Content "cookies.txt" -Raw
+$body = @{
+    cookie_content = $cookieContent
+} | ConvertTo-Json
+
+$response = Invoke-WebRequest -Uri "http://localhost:8000/accounts/cookie-api/" -Method POST -Headers @{"Content-Type"="application/json"; "Authorization"="Bearer YOUR_TOKEN"} -Body $body
+$result = $response.Content | ConvertFrom-Json
+Write-Host "Upload result: $($result.success)"
+```
+
+#### Delete Cookies
+```powershell
+# Delete stored cookies
+$response = Invoke-WebRequest -Uri "http://localhost:8000/accounts/cookie-api/" -Method DELETE -Headers @{"Authorization"="Bearer YOUR_TOKEN"}
+$result = $response.Content | ConvertFrom-Json
+Write-Host "Delete result: $($result.success)"
+```
+
+### Troubleshooting Cookie Issues
+
+#### Common Problems
+
+1. **"No valid YouTube/Google cookies found"**:
+   - Make sure you're logged into YouTube before exporting
+   - Check that the cookie file contains YouTube/Google domains
+   - Verify the file format is correct (Netscape format)
+
+2. **"Invalid cookie format"**:
+   - Ensure the file is in Netscape format (tab-separated values)
+   - Check that the file isn't corrupted or empty
+   - Make sure there are no extra characters or encoding issues
+
+3. **"Cookies expired"**:
+   - Cookies automatically expire after 7 days
+   - Upload fresh cookies from your browser
+   - Check the expiry date in the cookie management page
+
+4. **Downloads still failing**:
+   - Try logging out and back into YouTube in your browser
+   - Export fresh cookies after logging in
+   - Check if the video is age-restricted or region-locked
+
+#### Cookie File Format Example
+
+A valid `cookies.txt` file should look like this:
+```
+# Netscape HTTP Cookie File
+# This is a generated file! Do not edit.
+
+.youtube.com	TRUE	/	FALSE	1234567890	VISITOR_INFO1_LIVE	abc123def456
+.youtube.com	TRUE	/	FALSE	1234567890	PREF	value1=value2
+.google.com	TRUE	/	FALSE	1234567890	CONSENT	YES+US.en+20231201-00-0
+```
+
+### Best Practices
+
+1. **Regular Updates**: Upload fresh cookies every few days
+2. **Browser Sync**: Use the same browser account for both exporting and downloading
+3. **Privacy**: Only upload cookies from trusted devices
+4. **Cleanup**: Delete old cookies when uploading new ones
+5. **Testing**: Test downloads after uploading cookies to ensure they work
+
 ## 🔒 Security Notes
 
 - User authentication is required for all downloads
 - Files are stored in user-specific directories
 - All downloads are logged with user tracking
 - API endpoints require authentication
+- **Cookie encryption**: All uploaded cookies are encrypted at rest
+- **Automatic expiry**: Cookies expire after 7 days for security
+- **Secure storage**: Cookie files have restricted access permissions
 
 ## 📄 License
 

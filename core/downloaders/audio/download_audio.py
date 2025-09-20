@@ -2,7 +2,7 @@
 import sys
 from ..shared_downloader import download_audio as shared_download_audio
 
-def download_audio(url: str, output_dir: str = None, user=None, user_ip=None, user_agent=None, download_source='api', task_id=None) -> dict:
+def download_audio(url: str, output_dir: str = None, user=None, user_ip=None, user_agent=None, download_source='api', task_id=None, user_cookies: str = None) -> dict:
     """
     Download audio from YouTube URL using shared downloader.
     
@@ -14,6 +14,7 @@ def download_audio(url: str, output_dir: str = None, user=None, user_ip=None, us
         user_agent: User's browser/agent string
         download_source: Source of download ('api', 'website', 'api_async')
         task_id: Background task ID for async jobs
+        user_cookies: User's YouTube cookies for authentication
     
     Returns:
         dict: {
@@ -25,7 +26,7 @@ def download_audio(url: str, output_dir: str = None, user=None, user_ip=None, us
             'metadata': dict
         }
     """
-    result = shared_download_audio(url, output_dir, user=user, user_ip=user_ip, user_agent=user_agent, download_source=download_source, task_id=task_id)
+    result = shared_download_audio(url, output_dir, user=user, user_ip=user_ip, user_agent=user_agent, download_source=download_source, task_id=task_id, user_cookies=user_cookies)
     
     # Return in the original format for backward compatibility
     return {

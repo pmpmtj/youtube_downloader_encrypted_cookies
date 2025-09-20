@@ -6,6 +6,9 @@ from django.contrib import messages
 from core.downloaders.audio.download_audio import download_audio
 from core.downloaders.shared_downloader import get_file_info
 from core.shared_utils.app_config import APP_CONFIG
+from core.shared_utils.security_utils import get_client_ip, log_request_info
+from core.shared_utils.rate_limiting import get_download_stats, is_ip_allowed
+from core.shared_utils.cookie_manager import get_user_cookies
 
 @login_required
 def index(request):
@@ -22,9 +25,13 @@ def index(request):
         
         # Call the core download function with user-specific directory
         try:
-            # Get user tracking information
-            user_ip = request.META.get('REMOTE_ADDR')
+            # Log request and get user tracking information
+            log_request_info(request, "audio_download")
+            user_ip = get_client_ip(request)
             user_agent = request.META.get('HTTP_USER_AGENT', '')
+            
+            # Get user cookies for authentication
+            user_cookies = get_user_cookies(request.user)
             
             result = download_audio(
                 url, 
@@ -32,7 +39,8 @@ def index(request):
                 user=request.user,
                 user_ip=user_ip,
                 user_agent=user_agent,
-                download_source='website'
+                download_source='website',
+                user_cookies=user_cookies
             )
             
             if not result['success']:
@@ -48,9 +56,32 @@ def index(request):
                 return redirect('index')
             
         except Exception as e:
+            error_text = str(e)
+            if "Sign in to confirm you're not a bot" in error_text or "not a bot" in error_text:
+                messages.error(request, (
+                    "YouTube requires authentication for this request. "
+                    "Please upload your YouTube cookies using the Cookie Management page. "
+                    "Go to Dashboard → Manage Cookies to upload your cookies.txt file."
+                ))
+            else:
+                messages.error(request, f"Error: {error_text}")
             return HttpResponseBadRequest(f"Error: {e}")
 
-    return render(request, "audio_dl/download_form.html")
+    # Add rate limiting info to context
+    client_ip = get_client_ip(request)
+    download_stats = get_download_stats(client_ip)
+    
+    # Get cookie status
+    from core.shared_utils.cookie_manager import get_cookie_status
+    cookie_status = get_cookie_status(request.user)
+    
+    context = {
+        'download_stats': download_stats,
+        'ip_allowed': is_ip_allowed(client_ip),
+        'cookie_status': cookie_status
+    }
+    
+    return render(request, "audio_dl/download_form.html", context)
 
 
 def public_landing(request):

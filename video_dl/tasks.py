@@ -14,6 +14,7 @@ from django.conf import settings
 # (keeps behavior identical between sync and async paths)
 from core.downloaders.video.download_video import download_video
 from core.shared_utils.url_utils import YouTubeURLSanitizer, YouTubeURLError
+from core.shared_utils.cookie_manager import get_user_cookies
 
 
 @background(schedule=0)  # Run immediately
@@ -43,6 +44,9 @@ def process_youtube_video(url: str, task_id: str = None, output_dir: str = None,
             print(f"Background task {task_id} failed: User {user_id} not found")
             return
         
+        # Get user cookies for authentication
+        user_cookies = get_user_cookies(user) if user else None
+        
         # Use the core download function with user-specific directory
         result = download_video(
             url, 
@@ -51,7 +55,8 @@ def process_youtube_video(url: str, task_id: str = None, output_dir: str = None,
             user_ip=user_ip,
             user_agent=user_agent,
             download_source='api_async',
-            task_id=task_id
+            task_id=task_id,
+            user_cookies=user_cookies
         )
         
         if result['success']:

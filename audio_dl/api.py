@@ -9,6 +9,7 @@ from core.downloaders.audio.download_audio import download_audio
 from core.shared_utils.url_utils import YouTubeURLSanitizer, YouTubeURLError
 from core.downloaders.shared_downloader import get_file_info
 from core.shared_utils.app_config import APP_CONFIG
+from core.shared_utils.cookie_manager import get_user_cookies
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -34,6 +35,9 @@ def download_audio_api(request):
     user_ip = request.META.get('REMOTE_ADDR')
     user_agent = request.META.get('HTTP_USER_AGENT', '')
     
+    # Get user cookies for authentication
+    user_cookies = get_user_cookies(request.user)
+    
     # Use the core download function with user-specific directory
     result = download_audio(
         url, 
@@ -41,7 +45,8 @@ def download_audio_api(request):
         user=request.user,
         user_ip=user_ip,
         user_agent=user_agent,
-        download_source='api'
+        download_source='api',
+        user_cookies=user_cookies
     )
     
     if not result['success']:
