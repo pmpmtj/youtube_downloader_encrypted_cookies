@@ -1,5 +1,6 @@
 # audio_dl/api.py
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from django.http import FileResponse
@@ -9,6 +10,7 @@ from core.downloaders.shared_downloader import get_file_info
 from core.shared_utils.app_config import APP_CONFIG
 
 @api_view(["POST"])
+@permission_classes([IsAuthenticated])
 def download_audio_api(request):
     url = (request.data.get("url") or "").strip()
     if not url:
@@ -53,6 +55,7 @@ import uuid
 
 
 @api_view(["POST"])
+@permission_classes([IsAuthenticated])
 def download_audio_api_async(request):
     """Queue an audio download job and return a task id (HTTP 202)."""
     url = (request.data.get("url") or "").strip()
@@ -85,6 +88,7 @@ def download_audio_api_async(request):
 
 
 @api_view(["GET"])
+@permission_classes([IsAuthenticated])
 def job_status(request, job_id: str):
     """Return current task status."""
     try:
@@ -117,6 +121,7 @@ def job_status(request, job_id: str):
 
 
 @api_view(["GET"])
+@permission_classes([IsAuthenticated])
 def job_result(request, job_id: str):
     """If task finished successfully, stream the generated file."""
     try:

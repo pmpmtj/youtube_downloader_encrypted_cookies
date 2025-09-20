@@ -1,25 +1,25 @@
-<!-- youtube_downloader/templates/index.html -->
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <title>Simple YouTube Audio Downloader</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <style>
-      body { font-family: system-ui, sans-serif; max-width: 640px; margin: 4rem auto; padding: 0 1rem; }
-      form { display: flex; gap: .5rem; }
-      input[type="url"] { flex: 1; padding: .6rem .8rem; }
-      button { padding: .6rem 1rem; cursor: pointer; }
-      small { color: #555; display: block; margin-top: .75rem; }
-    </style>
-  </head>
-  <body>
-    <h1>Download YouTube Audio</h1>
-    <form method="post">
-      {% csrf_token %}
-      <input type="url" name="url" placeholder="Paste YouTube URL…" required />
-      <button type="submit">Download</button>
-    </form>
-    <small>The best available audio (prefers .m4a) will download directly.</small>
-  </body>
-</html>
+{% extends 'base.html' %}
+
+{% block title %}Download Audio - YouTube Downloader{% endblock %}
+
+{% block content %}
+<h1>Download YouTube Audio</h1>
+
+<div class="alert alert-success">
+    <strong>Welcome, {{ user.email }}!</strong> You can now download audio from YouTube videos.
+</div>
+
+<form method="post">
+    {% csrf_token %}
+    <div class="form-group">
+        <input type="url" name="url" placeholder="Paste YouTube URL…" required class="form-control" />
+    </div>
+    <button type="submit" class="btn btn-block">Download Audio</button>
+</form>
+
+<small class="text-muted">The best available audio (prefers .m4a) will download directly.</small>
+
+<div class="mt-4">
+    <a href="{% url 'accounts:dashboard' %}" class="btn btn-secondary">Back to Dashboard</a>
+</div>
+{% endblock %}

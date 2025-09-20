@@ -1,10 +1,12 @@
 # youtube_downloader/audio_dl/views.py
 from django.http import HttpResponseBadRequest, FileResponse, JsonResponse
-from django.shortcuts import render
+from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
 from core.downloaders.audio.download_audio import download_audio
 from core.downloaders.shared_downloader import get_file_info
 from core.shared_utils.app_config import APP_CONFIG
 
+@login_required
 def index(request):
     if request.method == "POST":
         url = (request.POST.get("url") or "").strip()
@@ -40,3 +42,10 @@ def index(request):
             return HttpResponseBadRequest(f"Error: {e}")
 
     return render(request, "index.html")
+
+
+def public_landing(request):
+    """Public landing page that redirects to login or dashboard."""
+    if request.user.is_authenticated:
+        return redirect('accounts:dashboard')
+    return render(request, "public_landing.html")

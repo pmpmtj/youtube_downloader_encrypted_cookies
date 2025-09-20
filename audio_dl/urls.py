@@ -4,7 +4,8 @@ from . import views
 from . import api  # DRF-based API
 
 urlpatterns = [
-    path("", views.index, name="index"),
+    path("", views.public_landing, name="public_landing"),
+    path("download/", views.index, name="index"),
     # Existing synchronous download endpoint stays intact
     path("api/download-audio/", api.download_audio_api, name="download_audio_api"),
     # New: asynchronous background download API (django-background-tasks)
