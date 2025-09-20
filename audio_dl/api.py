@@ -1,4 +1,5 @@
 # audio_dl/api.py
+import os
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -29,8 +30,19 @@ def download_audio_api(request):
     # Check if user wants to download to remote (from request data)
     download_to_remote = request.data.get('download_to_remote', True)
     
+    # Get user tracking information
+    user_ip = request.META.get('REMOTE_ADDR')
+    user_agent = request.META.get('HTTP_USER_AGENT', '')
+    
     # Use the core download function with user-specific directory
-    result = download_audio(url, output_dir=str(user_download_dir))
+    result = download_audio(
+        url, 
+        output_dir=str(user_download_dir),
+        user=request.user,
+        user_ip=user_ip,
+        user_agent=user_agent,
+        download_source='api'
+    )
     
     if not result['success']:
         return Response({"detail": result['error']}, status=status.HTTP_400_BAD_REQUEST)
@@ -78,9 +90,21 @@ def download_audio_api_async(request):
     # Create a unique task ID
     task_id = str(uuid.uuid4())
     
+    # Get user tracking information
+    user_ip = request.META.get('REMOTE_ADDR')
+    user_agent = request.META.get('HTTP_USER_AGENT', '')
+    
     # Queue the background task with user-specific directory
     from audio_dl.tasks import process_youtube_audio
-    process_youtube_audio(url, task_id=task_id, output_dir=str(user_download_dir), repeat=0)
+    process_youtube_audio(
+        url, 
+        task_id=task_id, 
+        output_dir=str(user_download_dir),
+        user_id=request.user.id,
+        user_ip=user_ip,
+        user_agent=user_agent,
+        repeat=0
+    )
 
     status_url = request.build_absolute_uri(reverse("job_status", args=[task_id]))
     result_url = request.build_absolute_uri(reverse("job_result", args=[task_id]))
@@ -96,34 +120,33 @@ def download_audio_api_async(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def job_status(request, job_id: str):
-    """Return current task status."""
+    """Return current task status from database."""
     try:
-        # Look for task by checking task_params for the task_id
-        task = Task.objects.filter(task_params__icontains=job_id).first()
+        # Import our custom models
+        from audio_dl.models import DownloadJob
         
-        if not task:
-            # Also check completed tasks
-            from background_task.models import CompletedTask
-            completed_task = CompletedTask.objects.filter(task_params__icontains=job_id).first()
-            if completed_task:
-                return Response({
-                    "task_id": job_id,
-                    "status": "completed",
-                    "run_at": completed_task.run_at.isoformat() if completed_task.run_at else None,
-                    "locked_at": completed_task.locked_at.isoformat() if completed_task.locked_at else None,
-                })
-            return Response({"detail": "Unknown task_id"}, status=status.HTTP_404_NOT_FOUND)
-
-        data = {
+        # Look for job in our database
+        job = DownloadJob.objects.filter(job_id=job_id, user=request.user).first()
+        
+        if not job:
+            return Response({"detail": "Job not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Return job status and details
+        return Response({
             "task_id": job_id,
-            "status": "running" if task.locked_at is None else "completed",
-            "run_at": task.run_at.isoformat() if task.run_at else None,
-            "locked_at": task.locked_at.isoformat() if task.locked_at else None,
-        }
-            
-        return Response(data)
+            "status": job.status,
+            "created_at": job.created_at.isoformat(),
+            "started_at": job.started_at.isoformat() if job.started_at else None,
+            "completed_at": job.completed_at.isoformat() if job.completed_at else None,
+            "filename": job.filename,
+            "file_size": job.file_size,
+            "error_message": job.error_message,
+            "download_source": job.download_source,
+            "duration_seconds": job.duration_seconds,
+        }, status=status.HTTP_200_OK)
+
     except Exception as e:
-        return Response({"detail": f"Error checking task status: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({"detail": f"Error checking job status: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(["GET"])
@@ -131,37 +154,22 @@ def job_status(request, job_id: str):
 def job_result(request, job_id: str):
     """If task finished successfully, stream the generated file."""
     try:
-        # Look for task by checking task_params for the task_id
-        from background_task.models import CompletedTask
+        # Import our custom models
+        from audio_dl.models import DownloadJob
         
-        # Check if task is completed
-        completed_task = CompletedTask.objects.filter(task_params__icontains=job_id).first()
+        # Look for job in our database
+        job = DownloadJob.objects.filter(job_id=job_id, user=request.user).first()
         
-        if not completed_task:
-            # Check if task is still running
-            task = Task.objects.filter(task_params__icontains=job_id).first()
-            if not task:
-                return Response({"detail": "Unknown task_id"}, status=status.HTTP_404_NOT_FOUND)
-            return Response({"detail": "Task not completed"}, status=status.HTTP_202_ACCEPTED)
-
-        # For this simplified implementation, we'll look for the file in the media directory
-        # In a real implementation, you'd store the result in a custom model
-        import os
-        from django.conf import settings
+        if not job:
+            return Response({"detail": "Job not found"}, status=status.HTTP_404_NOT_FOUND)
         
-        media_dir = os.path.join(settings.MEDIA_ROOT, 'downloads', 'audio')
-        files = os.listdir(media_dir) if os.path.exists(media_dir) else []
+        # Check if job is completed
+        if job.status != 'completed':
+            return Response({"detail": f"Job not completed (status: {job.status})"}, status=status.HTTP_202_ACCEPTED)
         
-        if not files:
-            return Response({"detail": "No file available"}, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Get the most recent audio file (exclude metadata files)
-        audio_files = [f for f in files if not f.endswith('_metadata.json') and not f.startswith('.')]
-        if not audio_files:
-            return Response({"detail": "No audio file available"}, status=status.HTTP_400_BAD_REQUEST)
-        
-        latest_file = max(audio_files, key=lambda f: os.path.getctime(os.path.join(media_dir, f)))
-        filepath = os.path.join(media_dir, latest_file)
+        # Check if file exists
+        if not job.filepath or not os.path.exists(job.filepath):
+            return Response({"detail": "File not found on disk"}, status=status.HTTP_410_GONE)
         
         # Check if we should download to remote location (client)
         download_to_remote = APP_CONFIG.get("download", {}).get("download_to_remote_location", "True").lower() == "true"
@@ -169,18 +177,20 @@ def job_result(request, job_id: str):
         if download_to_remote:
             # Return the file (current behavior - download dialog)
             try:
-                fileobj = open(filepath, "rb")
-                return FileResponse(fileobj, as_attachment=True, filename=latest_file)
+                fileobj = open(job.filepath, "rb")
+                return FileResponse(fileobj, as_attachment=True, filename=job.filename)
             except OSError:
                 return Response({"detail": "File not found on disk"}, status=status.HTTP_410_GONE)
         else:
             # Return file info as JSON (server-only storage)
-            file_info = get_file_info(filepath)
+            file_info = get_file_info(job.filepath)
             return Response({
                 'success': True,
-                'message': 'File downloaded successfully to server',
+                'message': 'File available for download',
                 'file_info': file_info,
-                'task_id': job_id
+                'filepath': job.filepath,
+                'job_id': job.job_id,
+                'metadata': job.metadata.raw_metadata if hasattr(job, 'metadata') and job.metadata else None,
             }, status=status.HTTP_200_OK)
             
     except Exception as e:

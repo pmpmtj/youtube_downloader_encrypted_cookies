@@ -21,7 +21,18 @@ def index(request):
         
         # Call the core download function with user-specific directory
         try:
-            result = download_audio(url, output_dir=str(user_download_dir))
+            # Get user tracking information
+            user_ip = request.META.get('REMOTE_ADDR')
+            user_agent = request.META.get('HTTP_USER_AGENT', '')
+            
+            result = download_audio(
+                url, 
+                output_dir=str(user_download_dir),
+                user=request.user,
+                user_ip=user_ip,
+                user_agent=user_agent,
+                download_source='website'
+            )
             
             if not result['success']:
                 return HttpResponseBadRequest(f"Error: {result['error']}")

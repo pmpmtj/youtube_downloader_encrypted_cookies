@@ -38,6 +38,7 @@ class DownloadJob:
         self.completed_at = None
         self.filepath = None
         self.filename = None
+        self.file_size = None
         self.error = None
         self.metadata = {}
         
@@ -53,6 +54,7 @@ class DownloadJob:
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
             "filepath": self.filepath,
             "filename": self.filename,
+            "file_size": self.file_size,
             "error": self.error,
             "metadata": self.metadata
         }
@@ -182,18 +184,95 @@ def save_artifact(job: DownloadJob, info: Dict[str, Any]) -> str:
         logger.error(f"Failed to save artifact: {e}")
         return ""
 
-def log_to_database(job: DownloadJob) -> bool:
-    """Log download job to database (placeholder for future implementation)."""
+def log_to_database(job: DownloadJob, user=None, user_ip=None, user_agent=None, download_source='api', task_id=None) -> bool:
+    """
+    Log download job to database with full tracking information.
+    
+    Args:
+        job: DownloadJob instance with job details
+        user: Django User instance (required for database logging)
+        user_ip: User's IP address
+        user_agent: User's browser/agent string
+        download_source: Source of download ('api', 'website', 'api_async')
+        task_id: Background task ID for async jobs
+    
+    Returns:
+        bool: True if logging successful, False otherwise
+    """
     try:
-        # TODO: Implement database logging
-        # This is a placeholder for future database integration
-        logger.debug(f"Database log: {job.to_dict()}")
+        # Only proceed if we have Django context (user available)
+        if not user:
+            logger.debug(f"Database log skipped - no user context: {job.to_dict()}")
+            return True
+        
+        # Import Django models here to avoid circular imports
+        from audio_dl.models import DownloadJob as DBJob, JobMetadata
+        
+        # Create or update database job record
+        db_job, created = DBJob.objects.update_or_create(
+            job_id=job.job_id,
+            defaults={
+                'task_id': task_id,
+                'user': user,
+                'url': job.url,
+                'download_type': job.download_type,
+                'status': job.status,
+                'filename': job.filename,
+                'filepath': job.filepath,
+                'file_size': job.file_size,
+                'error_message': job.error,
+                'user_ip': user_ip,
+                'user_agent': user_agent,
+                'download_source': download_source,
+                'started_at': job.created_at if job.status == 'downloading' else None,
+                'completed_at': job.completed_at,
+            }
+        )
+        
+        # Create metadata record if we have metadata
+        if job.metadata and created:
+            JobMetadata.objects.create(
+                job=db_job,
+                title=job.metadata.get('title'),
+                duration=job.metadata.get('duration'),
+                uploader=job.metadata.get('uploader'),
+                upload_date=job.metadata.get('upload_date'),
+                view_count=job.metadata.get('view_count'),
+                like_count=job.metadata.get('like_count'),
+                format_id=job.metadata.get('format_id'),
+                ext=job.metadata.get('ext'),
+                vcodec=job.metadata.get('vcodec'),
+                acodec=job.metadata.get('acodec'),
+                filesize=job.metadata.get('filesize'),
+                fps=job.metadata.get('fps'),
+                raw_metadata=job.metadata,
+            )
+        elif job.metadata and not created:
+            # Update existing metadata
+            metadata, _ = JobMetadata.objects.get_or_create(job=db_job)
+            metadata.title = job.metadata.get('title')
+            metadata.duration = job.metadata.get('duration')
+            metadata.uploader = job.metadata.get('uploader')
+            metadata.upload_date = job.metadata.get('upload_date')
+            metadata.view_count = job.metadata.get('view_count')
+            metadata.like_count = job.metadata.get('like_count')
+            metadata.format_id = job.metadata.get('format_id')
+            metadata.ext = job.metadata.get('ext')
+            metadata.vcodec = job.metadata.get('vcodec')
+            metadata.acodec = job.metadata.get('acodec')
+            metadata.filesize = job.metadata.get('filesize')
+            metadata.fps = job.metadata.get('fps')
+            metadata.raw_metadata = job.metadata
+            metadata.save()
+        
+        logger.debug(f"Database job {'created' if created else 'updated'}: {db_job.job_id} - {job.status}")
         return True
+        
     except Exception as e:
-        logger.error(f"Database logging failed: {e}")
+        logger.error(f"Database logging failed for job {job.job_id}: {e}")
         return False
 
-def download_media(url: str, download_type: DownloadType, output_dir: Optional[str] = None) -> Dict[str, Any]:
+def download_media(url: str, download_type: DownloadType, output_dir: Optional[str] = None, user=None, user_ip=None, user_agent=None, download_source='api', task_id=None) -> Dict[str, Any]:
     """
     Download audio or video from YouTube URL with full tracking and logging.
     
@@ -236,7 +315,7 @@ def download_media(url: str, download_type: DownloadType, output_dir: Optional[s
     job.status = "downloading"
     
     # Log to database
-    log_to_database(job)
+    log_to_database(job, user=user, user_ip=user_ip, user_agent=user_agent, download_source=download_source, task_id=task_id)
     
     # Ensure output directory exists
     output_path = Path(job.output_dir)
@@ -265,7 +344,7 @@ def download_media(url: str, download_type: DownloadType, output_dir: Optional[s
             job.status = "failed"
             job.error = "Download failed - file not created"
             job.completed_at = datetime.now()
-            log_to_database(job)
+            log_to_database(job, user=user, user_ip=user_ip, user_agent=user_agent, download_source=download_source, task_id=task_id)
             
             return {
                 'success': False,
@@ -283,11 +362,17 @@ def download_media(url: str, download_type: DownloadType, output_dir: Optional[s
         job.filename = os.path.basename(filepath)
         job.completed_at = datetime.now()
         
+        # Calculate file size
+        try:
+            job.file_size = os.path.getsize(filepath)
+        except OSError:
+            job.file_size = 0
+        
         # Save artifact
         artifact_path = save_artifact(job, info)
         
         # Final database log
-        log_to_database(job)
+        log_to_database(job, user=user, user_ip=user_ip, user_agent=user_agent, download_source=download_source, task_id=task_id)
         
         logger.info(f"Successfully downloaded {download_type}: {job.filename}")
         
@@ -305,7 +390,7 @@ def download_media(url: str, download_type: DownloadType, output_dir: Optional[s
         job.status = "failed"
         job.error = str(e)
         job.completed_at = datetime.now()
-        log_to_database(job)
+        log_to_database(job, user=user, user_ip=user_ip, user_agent=user_agent, download_source=download_source, task_id=task_id)
         
         logger.error(f"Download failed: {e}")
         
@@ -319,13 +404,13 @@ def download_media(url: str, download_type: DownloadType, output_dir: Optional[s
             'metadata': job.metadata
         }
 
-def download_audio(url: str, output_dir: Optional[str] = None) -> Dict[str, Any]:
+def download_audio(url: str, output_dir: Optional[str] = None, user=None, user_ip=None, user_agent=None, download_source='api', task_id=None) -> Dict[str, Any]:
     """Download audio from YouTube URL."""
-    return download_media(url, "audio", output_dir)
+    return download_media(url, "audio", output_dir, user=user, user_ip=user_ip, user_agent=user_agent, download_source=download_source, task_id=task_id)
 
-def download_video(url: str, output_dir: Optional[str] = None) -> Dict[str, Any]:
+def download_video(url: str, output_dir: Optional[str] = None, user=None, user_ip=None, user_agent=None, download_source='api', task_id=None) -> Dict[str, Any]:
     """Download video from YouTube URL."""
-    return download_media(url, "video", output_dir)
+    return download_media(url, "video", output_dir, user=user, user_ip=user_ip, user_agent=user_agent, download_source=download_source, task_id=task_id)
 
 if __name__ == "__main__":
     # Test the downloader

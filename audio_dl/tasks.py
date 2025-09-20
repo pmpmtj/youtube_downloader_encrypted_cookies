@@ -17,19 +17,32 @@ from core.shared_utils.url_utils import YouTubeURLSanitizer, YouTubeURLError
 
 
 @background(schedule=0)  # Run immediately
-def process_youtube_audio(url: str, task_id: str = None, output_dir: str = None):
+def process_youtube_audio(url: str, task_id: str = None, output_dir: str = None, user_id: int = None, user_ip: str = None, user_agent: str = None):
     """Download audio for the given URL into user-specific directory.
     
     Args:
         url: YouTube URL to download
         task_id: Optional task identifier for tracking
         output_dir: User-specific output directory path
+        user_id: User ID for database logging
+        user_ip: User's IP address
+        user_agent: User's browser/agent string
     """
     try:
         # Validate YouTube URL before processing
         if not YouTubeURLSanitizer.is_youtube_url(url):
             print(f"Background task {task_id} failed: Invalid YouTube URL")
             return
+
+        # Get user object for database logging
+        user = None
+        if user_id:
+            from accounts.models import User
+            try:
+                user = User.objects.get(id=user_id)
+            except User.DoesNotExist:
+                print(f"Background task {task_id} failed: User {user_id} not found")
+                return
 
         # Use provided output directory or default to general downloads folder
         if output_dir:
@@ -40,10 +53,18 @@ def process_youtube_audio(url: str, task_id: str = None, output_dir: str = None)
         # Ensure output directory exists
         output_path.mkdir(parents=True, exist_ok=True)
 
-        # Delegate to the shared downloader (URL sanitization happens there)
-        result = download_audio(url, output_dir=str(output_path))
+        # Delegate to the shared downloader with database logging
+        result = download_audio(
+            url, 
+            output_dir=str(output_path),
+            user=user,
+            user_ip=user_ip,
+            user_agent=user_agent,
+            download_source='api_async',
+            task_id=task_id
+        )
 
-        # Log the result (you could store this in a custom model for better tracking)
+        # Log the result
         if result and result.get('success'):
             print(f"Background task {task_id} completed successfully: {result.get('filename')}")
         else:
