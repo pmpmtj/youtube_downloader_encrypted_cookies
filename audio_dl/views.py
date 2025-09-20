@@ -44,7 +44,7 @@ def index(request):
         except Exception as e:
             return HttpResponseBadRequest(f"Error: {e}")
 
-    return render(request, "index.html")
+    return render(request, "audio_dl/download_form.html")
 
 
 def public_landing(request):
