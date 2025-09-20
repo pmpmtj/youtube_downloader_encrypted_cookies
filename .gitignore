@@ -50,3 +50,6 @@ staticfiles/
 
 # Background tasks
 background_tasks/
+
+encryption.key
+*.enc
