@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - YouTube Downloader{% endblock %}
+
+{% block content %}
+<h1>Welcome to Your Dashboard</h1>
+
+<div class="alert alert-success">
+    <strong>You are signed in!</strong> Welcome to the YouTube Downloader application.
+</div>
+
+<div class="mt-4">
+    <h2>Account Information</h2>
+    <p><strong>Email:</strong> {{ user.email }}</p>
+    <p><strong>Member since:</strong> {{ user.date_joined|date:"F d, Y" }}</p>
+    <p><strong>Last login:</strong> {{ user.last_login|date:"F d, Y g:i A" }}</p>
+</div>
+
+<div class="mt-4">
+    <h2>Quick Actions</h2>
+    <p>Ready to download YouTube content? Start here:</p>
+    <a href="{% url 'index' %}" class="btn">Download Audio</a>
+    <a href="/" class="btn btn-secondary mt-3">Go to Main Page</a>
+</div>
+
+<div class="text-center mt-4">
+    <form method="post" action="{% url 'accounts:logout' %}" style="display: inline;">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">Logout</button>
+    </form>
+</div>
+{% endblock %}
