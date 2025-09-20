@@ -17,12 +17,13 @@ from core.shared_utils.url_utils import YouTubeURLSanitizer, YouTubeURLError
 
 
 @background(schedule=0)  # Run immediately
-def process_youtube_audio(url: str, task_id: str = None):
-    """Download audio for the given URL into MEDIA_ROOT/downloads/audio.
+def process_youtube_audio(url: str, task_id: str = None, output_dir: str = None):
+    """Download audio for the given URL into user-specific directory.
     
     Args:
         url: YouTube URL to download
         task_id: Optional task identifier for tracking
+        output_dir: User-specific output directory path
     """
     try:
         # Validate YouTube URL before processing
@@ -30,12 +31,17 @@ def process_youtube_audio(url: str, task_id: str = None):
             print(f"Background task {task_id} failed: Invalid YouTube URL")
             return
 
+        # Use provided output directory or default to general downloads folder
+        if output_dir:
+            output_path = Path(output_dir)
+        else:
+            output_path = Path(settings.MEDIA_ROOT) / 'downloads' / 'audio'
+        
         # Ensure output directory exists
-        output_dir = Path(settings.MEDIA_ROOT) / 'downloads' / 'audio'
-        output_dir.mkdir(parents=True, exist_ok=True)
+        output_path.mkdir(parents=True, exist_ok=True)
 
         # Delegate to the shared downloader (URL sanitization happens there)
-        result = download_audio(url, output_dir=str(output_dir))
+        result = download_audio(url, output_dir=str(output_path))
 
         # Log the result (you could store this in a custom model for better tracking)
         if result and result.get('success'):

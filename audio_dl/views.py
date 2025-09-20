@@ -13,9 +13,12 @@ def index(request):
         if not url:
             return HttpResponseBadRequest("Missing URL.")
 
-        # Call the core download function directly
+        # Get user-specific download directory
+        user_download_dir = request.user.get_download_directory()
+        
+        # Call the core download function with user-specific directory
         try:
-            result = download_audio(url)
+            result = download_audio(url, output_dir=str(user_download_dir))
             
             if not result['success']:
                 return HttpResponseBadRequest(f"Error: {result['error']}")

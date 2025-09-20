@@ -85,7 +85,7 @@ WSGI_APPLICATION = 'youtube_downloader.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'my_web_app_db',
+        'NAME': 'db_my_web_app',
         'USER': 'postgres',
         'PASSWORD': 'Rqerjme1itm',
         'HOST': 'localhost',

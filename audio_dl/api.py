@@ -23,8 +23,11 @@ def download_audio_api(request):
     except Exception as e:
         return Response({"detail": f"URL validation error: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Use the core download function (URL sanitization happens there)
-    result = download_audio(url)
+    # Get user-specific download directory
+    user_download_dir = request.user.get_download_directory()
+    
+    # Use the core download function with user-specific directory
+    result = download_audio(url, output_dir=str(user_download_dir))
     
     if not result['success']:
         return Response({"detail": result['error']}, status=status.HTTP_400_BAD_REQUEST)
@@ -69,12 +72,15 @@ def download_audio_api_async(request):
     except Exception as e:
         return Response({"detail": f"URL validation error: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
 
+    # Get user-specific download directory
+    user_download_dir = request.user.get_download_directory()
+    
     # Create a unique task ID
     task_id = str(uuid.uuid4())
     
-    # Queue the background task
+    # Queue the background task with user-specific directory
     from audio_dl.tasks import process_youtube_audio
-    process_youtube_audio(url, task_id=task_id, repeat=0)
+    process_youtube_audio(url, task_id=task_id, output_dir=str(user_download_dir), repeat=0)
 
     status_url = request.build_absolute_uri(reverse("job_status", args=[task_id]))
     result_url = request.build_absolute_uri(reverse("job_result", args=[task_id]))
