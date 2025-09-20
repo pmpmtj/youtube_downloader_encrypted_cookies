@@ -80,6 +80,47 @@ def sanitize_download_url(url: str) -> str:
         logger.error(error_msg)
         raise ValueError(error_msg)
 
+def get_file_info(filepath: str) -> Dict[str, Any]:
+    """
+    Get file information for JSON responses.
+    
+    Args:
+        filepath: Path to the file
+        
+    Returns:
+        Dictionary with file information
+    """
+    if not filepath or not os.path.exists(filepath):
+        return {
+            'filename': None,
+            'filepath': None,
+            'size_bytes': 0,
+            'size_mb': 0.0,
+            'exists': False
+        }
+    
+    try:
+        stat = os.stat(filepath)
+        size_bytes = stat.st_size
+        size_mb = round(size_bytes / (1024 * 1024), 2)
+        
+        return {
+            'filename': os.path.basename(filepath),
+            'filepath': filepath,
+            'size_bytes': size_bytes,
+            'size_mb': size_mb,
+            'exists': True
+        }
+    except Exception as e:
+        logger.error(f"Error getting file info for {filepath}: {e}")
+        return {
+            'filename': os.path.basename(filepath) if filepath else None,
+            'filepath': filepath,
+            'size_bytes': 0,
+            'size_mb': 0.0,
+            'exists': False
+        }
+
 def get_format_selector(download_type: DownloadType) -> str:
     """Get the appropriate format selector for the download type."""
     if download_type == "audio":

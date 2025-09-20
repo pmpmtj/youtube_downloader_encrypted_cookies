@@ -5,6 +5,8 @@ from rest_framework import status
 from django.http import FileResponse
 from core.downloaders.audio.download_audio import download_audio
 from core.shared_utils.url_utils import YouTubeURLSanitizer, YouTubeURLError
+from core.downloaders.shared_downloader import get_file_info
+from core.shared_utils.app_config import APP_CONFIG
 
 @api_view(["POST"])
 def download_audio_api(request):
@@ -25,9 +27,23 @@ def download_audio_api(request):
     if not result['success']:
         return Response({"detail": result['error']}, status=status.HTTP_400_BAD_REQUEST)
     
-    # Return the file
-    fileobj = open(result['filepath'], "rb")
-    return FileResponse(fileobj, as_attachment=True, filename=result['filename'])
+    # Check if we should download to remote location (client)
+    download_to_remote = APP_CONFIG.get("download", {}).get("download_to_remote_location", "True").lower() == "true"
+    
+    if download_to_remote:
+        # Return the file (current behavior - download dialog)
+        fileobj = open(result['filepath'], "rb")
+        return FileResponse(fileobj, as_attachment=True, filename=result['filename'])
+    else:
+        # Return file info as JSON (server-only storage)
+        file_info = get_file_info(result['filepath'])
+        return Response({
+            'success': True,
+            'message': 'File downloaded successfully to server',
+            'file_info': file_info,
+            'job_id': result.get('job_id'),
+            'metadata': result.get('metadata', {})
+        }, status=status.HTTP_200_OK)
 
 # ---------------------- NEW: Async endpoints (django-background-tasks) ----------------------
 from django.urls import reverse
@@ -136,11 +152,25 @@ def job_result(request, job_id: str):
         latest_file = max(audio_files, key=lambda f: os.path.getctime(os.path.join(media_dir, f)))
         filepath = os.path.join(media_dir, latest_file)
         
-        try:
-            fileobj = open(filepath, "rb")
-            return FileResponse(fileobj, as_attachment=True, filename=latest_file)
-        except OSError:
-            return Response({"detail": "File not found on disk"}, status=status.HTTP_410_GONE)
+        # Check if we should download to remote location (client)
+        download_to_remote = APP_CONFIG.get("download", {}).get("download_to_remote_location", "True").lower() == "true"
+        
+        if download_to_remote:
+            # Return the file (current behavior - download dialog)
+            try:
+                fileobj = open(filepath, "rb")
+                return FileResponse(fileobj, as_attachment=True, filename=latest_file)
+            except OSError:
+                return Response({"detail": "File not found on disk"}, status=status.HTTP_410_GONE)
+        else:
+            # Return file info as JSON (server-only storage)
+            file_info = get_file_info(filepath)
+            return Response({
+                'success': True,
+                'message': 'File downloaded successfully to server',
+                'file_info': file_info,
+                'task_id': job_id
+            }, status=status.HTTP_200_OK)
             
     except Exception as e:
         return Response({"detail": f"Error retrieving result: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

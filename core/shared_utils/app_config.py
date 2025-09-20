@@ -14,6 +14,9 @@ APP_CONFIG = {
     "audio": {
         "save_to_mp3": "True",
         "remove_original": "False"
+    },
+    "download": {
+        "download_to_remote_location": "true"
     }
 }
 
