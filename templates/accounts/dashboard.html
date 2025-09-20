@@ -18,9 +18,32 @@
 
 <div class="mt-4">
     <h2>Quick Actions</h2>
-    <p>Ready to download YouTube content? Start here:</p>
-    <a href="{% url 'index' %}" class="btn">Download Audio</a>
-    <a href="/" class="btn btn-secondary mt-3">Go to Main Page</a>
+    <p>Ready to download YouTube content? Choose your option:</p>
+    
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Download Audio</h5>
+                    <p class="card-text">Download high-quality audio from YouTube videos in various formats.</p>
+                    <a href="{% url 'audio_dl:index' %}" class="btn btn-primary">Download Audio</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Download Video</h5>
+                    <p class="card-text">Download videos from YouTube in your preferred quality and format.</p>
+                    <a href="{% url 'video_dl:video_index' %}" class="btn btn-primary">Download Video</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="mt-3">
+        <a href="{% url 'audio_dl:public_landing' %}" class="btn btn-secondary">Go to Main Page</a>
+    </div>
 </div>
 
 <div class="text-center mt-4">

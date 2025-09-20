@@ -3,6 +3,8 @@ from django.urls import path
 from . import views
 from . import api  # DRF-based API
 
+app_name = 'audio_dl'
+
 urlpatterns = [
     path("", views.public_landing, name="public_landing"),
     path("download/", views.index, name="index"),

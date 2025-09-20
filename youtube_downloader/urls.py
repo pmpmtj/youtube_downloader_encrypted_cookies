@@ -20,9 +20,9 @@ from django.conf import settings
 from django.conf.urls.static import static
 
 urlpatterns = [
-    path("", include("audio_dl.urls")),
-    path("video/", include("video_dl.urls")),
-    path("accounts/", include("accounts.urls")),
+    path("", include("audio_dl.urls", namespace="audio_dl")),
+    path("video/", include("video_dl.urls", namespace="video_dl")),
+    path("accounts/", include("accounts.urls", namespace="accounts")),
     path("admin/", admin.site.urls),
 ]
 if settings.DEBUG:

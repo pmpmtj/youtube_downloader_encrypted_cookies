@@ -59,7 +59,7 @@ def index(request):
 def public_landing(request):
     """Public landing page that redirects to login or dashboard."""
     if request.user.is_authenticated:
-        return redirect('video_index')
+        return redirect('accounts:dashboard')
     else:
         return redirect('accounts:login')
 
