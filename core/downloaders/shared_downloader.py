@@ -148,42 +148,6 @@ def get_ydl_options(download_type: DownloadType, output_template: str) -> Dict[s
     
     return base_options
 
-def save_artifact(job: DownloadJob, info: Dict[str, Any]) -> str:
-    """Save download metadata as JSON artifact."""
-    artifact_filename = f"{job.job_id}_metadata.json"
-    artifact_path = Path(job.output_dir) / artifact_filename
-    
-    artifact_data = {
-        "job_info": job.to_dict(),
-        "video_info": {
-            "title": info.get("title", ""),
-            "uploader": info.get("uploader", ""),
-            "duration": info.get("duration", 0),
-            "view_count": info.get("view_count", 0),
-            "upload_date": info.get("upload_date", ""),
-            "description": info.get("description", ""),
-            "tags": info.get("tags", []),
-            "categories": info.get("categories", []),
-        },
-        "download_info": {
-            "format": info.get("format", ""),
-            "filesize": info.get("filesize", 0),
-            "fps": info.get("fps", 0),
-            "width": info.get("width", 0),
-            "height": info.get("height", 0),
-        }
-    }
-    
-    try:
-        with open(artifact_path, 'w', encoding='utf-8') as f:
-            json.dump(artifact_data, f, indent=2, ensure_ascii=False)
-        
-        logger.info(f"Saved artifact: {artifact_path}")
-        return str(artifact_path)
-    except Exception as e:
-        logger.error(f"Failed to save artifact: {e}")
-        return ""
-
 def log_to_database(job: DownloadJob, user=None, user_ip=None, user_agent=None, download_source='api', task_id=None) -> bool:
     """
     Log download job to database with full tracking information.
@@ -280,6 +244,11 @@ def download_media(url: str, download_type: DownloadType, output_dir: Optional[s
         url: YouTube URL to download
         download_type: "audio" or "video"
         output_dir: Directory to save file (defaults to current working directory)
+        user: Django User instance for database logging
+        user_ip: User's IP address
+        user_agent: User's browser/agent string
+        download_source: Source of download ('api', 'website', 'api_async')
+        task_id: Background task ID for async jobs
     
     Returns:
         dict: {
@@ -287,7 +256,6 @@ def download_media(url: str, download_type: DownloadType, output_dir: Optional[s
             'job_id': str,
             'filepath': str or None,
             'filename': str or None,
-            'artifact_path': str or None,
             'error': str or None,
             'metadata': dict
         }
@@ -305,7 +273,6 @@ def download_media(url: str, download_type: DownloadType, output_dir: Optional[s
             'job_id': str(uuid.uuid4()),
             'filepath': None,
             'filename': None,
-            'artifact_path': None,
             'error': str(e),
             'metadata': {}
         }
@@ -351,7 +318,6 @@ def download_media(url: str, download_type: DownloadType, output_dir: Optional[s
                 'job_id': job.job_id,
                 'filepath': None,
                 'filename': None,
-                'artifact_path': None,
                 'error': job.error,
                 'metadata': job.metadata
             }
@@ -368,9 +334,6 @@ def download_media(url: str, download_type: DownloadType, output_dir: Optional[s
         except OSError:
             job.file_size = 0
         
-        # Save artifact
-        artifact_path = save_artifact(job, info)
-        
         # Final database log
         log_to_database(job, user=user, user_ip=user_ip, user_agent=user_agent, download_source=download_source, task_id=task_id)
         
@@ -381,7 +344,6 @@ def download_media(url: str, download_type: DownloadType, output_dir: Optional[s
             'job_id': job.job_id,
             'filepath': job.filepath,
             'filename': job.filename,
-            'artifact_path': artifact_path,
             'error': None,
             'metadata': job.metadata
         }
@@ -399,7 +361,6 @@ def download_media(url: str, download_type: DownloadType, output_dir: Optional[s
             'job_id': job.job_id,
             'filepath': None,
             'filename': None,
-            'artifact_path': None,
             'error': job.error,
             'metadata': job.metadata
         }

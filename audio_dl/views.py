@@ -2,6 +2,7 @@
 from django.http import HttpResponseBadRequest, FileResponse, JsonResponse
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 from core.downloaders.audio.download_audio import download_audio
 from core.downloaders.shared_downloader import get_file_info
 from core.shared_utils.app_config import APP_CONFIG
@@ -42,15 +43,9 @@ def index(request):
                 fileobj = open(result['filepath'], "rb")
                 return FileResponse(fileobj, as_attachment=True, filename=result['filename'])
             else:
-                # Return file info as JSON (server-only storage)
-                file_info = get_file_info(result['filepath'])
-                return JsonResponse({
-                    'success': True,
-                    'message': 'File downloaded successfully to server',
-                    'file_info': file_info,
-                    'job_id': result.get('job_id'),
-                    'metadata': result.get('metadata', {})
-                })
+                # Server-only storage - show success message and redirect
+                messages.success(request, f'Audio downloaded successfully to server: {result["filename"]}')
+                return redirect('index')
             
         except Exception as e:
             return HttpResponseBadRequest(f"Error: {e}")
