@@ -53,7 +53,7 @@ def index(request):
             else:
                 # Server-only storage - show success message and redirect
                 messages.success(request, f'Audio downloaded successfully to server: {result["filename"]}')
-                return redirect('index')
+                return redirect('audio_dl:index')
             
         except Exception as e:
             error_text = str(e)

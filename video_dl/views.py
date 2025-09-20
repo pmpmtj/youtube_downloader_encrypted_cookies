@@ -56,7 +56,7 @@ def index(request):
             else:
                 # Server-only storage - show success message and redirect
                 messages.success(request, f'Video downloaded successfully to server: {result["filename"]}')
-                return redirect('video_index')
+                return redirect('video_dl:video_index')
             
         except Exception as e:
             error_text = str(e)

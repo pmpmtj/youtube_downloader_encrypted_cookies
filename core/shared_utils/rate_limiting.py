@@ -41,7 +41,9 @@ class RateLimitMiddleware:
     def should_rate_limit(self, request) -> bool:
         """Check if this request should be rate limited."""
         rate_limited_paths = ['/download/', '/video/download/', '/api/download-']
-        return any(path in request.path for path in rate_limited_paths)
+        # Only rate limit POST requests (actual downloads), not GET requests (form displays)
+        return (any(path in request.path for path in rate_limited_paths) and 
+                request.method == 'POST')
     
     def check_rate_limit(self, request) -> bool:
         """

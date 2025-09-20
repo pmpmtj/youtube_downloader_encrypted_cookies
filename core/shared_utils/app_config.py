@@ -21,7 +21,7 @@ APP_CONFIG = {
     "public_access": {
         "enable_cookie_auth": True,
         "rotate_user_agents": True,
-        "rate_limit_per_ip": 5,  # downloads per hour per IP
+        "rate_limit_per_ip": 10,  # downloads per hour per IP
         "max_concurrent_downloads": 3,
         "use_mobile_fallback": True  # Use mobile user agent as primary anti-bot method
     },
