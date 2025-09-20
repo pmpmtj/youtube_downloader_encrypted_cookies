@@ -3,9 +3,11 @@ from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.views.decorators.http import require_http_methods
+from django.views.decorators.cache import never_cache
 from .forms import UserSignupForm, UserLoginForm
 
 
+@never_cache
 def signup_view(request):
     """
     User registration view.
@@ -20,11 +22,13 @@ def signup_view(request):
         else:
             messages.error(request, 'Please correct the errors below.')
     else:
+        # Always create a fresh form instance for GET requests
         form = UserSignupForm()
     
     return render(request, 'accounts/signup.html', {'form': form})
 
 
+@never_cache
 def login_view(request):
     """
     User login view.

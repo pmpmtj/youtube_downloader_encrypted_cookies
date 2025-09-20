@@ -15,21 +15,25 @@ class UserSignupForm(UserCreationForm):
         help_text='Required. Enter a valid email address.',
         widget=forms.EmailInput(attrs={
             'class': 'form-control',
-            'placeholder': 'Enter your email address'
+            'placeholder': 'Enter your email address',
+            'autocomplete': 'off',
+            'value': ''
         })
     )
     password1 = forms.CharField(
         label="Password",
         widget=forms.PasswordInput(attrs={
             'class': 'form-control',
-            'placeholder': 'Enter your password'
+            'placeholder': 'Enter your password',
+            'autocomplete': 'new-password'
         })
     )
     password2 = forms.CharField(
         label="Confirm Password",
         widget=forms.PasswordInput(attrs={
             'class': 'form-control',
-            'placeholder': 'Confirm your password'
+            'placeholder': 'Confirm your password',
+            'autocomplete': 'new-password'
         })
     )
     

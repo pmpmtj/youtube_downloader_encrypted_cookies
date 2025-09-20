@@ -16,7 +16,7 @@ APP_CONFIG = {
         "remove_original": "False"
     },
     "download": {
-        "download_to_remote_location": "true"
+        "download_to_remote_location": "false"
     }
 }
 
