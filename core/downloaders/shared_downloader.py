@@ -16,6 +16,7 @@ from yt_dlp import YoutubeDL
 
 from ..shared_utils.path_utils import resolve_path
 from ..shared_utils.app_config import APP_CONFIG
+from ..shared_utils.url_utils import YouTubeURLSanitizer, YouTubeURLError
 
 # Initialize logger for this module
 import logging
@@ -55,6 +56,29 @@ class DownloadJob:
             "error": self.error,
             "metadata": self.metadata
         }
+
+def sanitize_download_url(url: str) -> str:
+    """
+    Sanitize and validate YouTube URL before download.
+    
+    Args:
+        url: Raw YouTube URL to sanitize
+        
+    Returns:
+        Clean, standardized YouTube URL
+        
+    Raises:
+        ValueError: If URL is invalid or not a YouTube URL
+    """
+    try:
+        logger.debug(f"Sanitizing URL: {url}")
+        url_info = YouTubeURLSanitizer.sanitize_url(url, preserve_metadata=True)
+        logger.debug(f"URL sanitized successfully: {url_info.clean_url}")
+        return url_info.clean_url
+    except YouTubeURLError as e:
+        error_msg = f"Invalid YouTube URL: {e}"
+        logger.error(error_msg)
+        raise ValueError(error_msg)
 
 def get_format_selector(download_type: DownloadType) -> str:
     """Get the appropriate format selector for the download type."""
@@ -150,8 +174,24 @@ def download_media(url: str, download_type: DownloadType, output_dir: Optional[s
     """
     logger.info(f"Starting {download_type} download for: {url}")
     
-    # Create download job
-    job = DownloadJob(url, download_type, output_dir)
+    # Sanitize and validate URL
+    try:
+        sanitized_url = sanitize_download_url(url)
+        logger.debug(f"Using sanitized URL: {sanitized_url}")
+    except ValueError as e:
+        logger.error(f"URL validation failed: {e}")
+        return {
+            'success': False,
+            'job_id': str(uuid.uuid4()),
+            'filepath': None,
+            'filename': None,
+            'artifact_path': None,
+            'error': str(e),
+            'metadata': {}
+        }
+    
+    # Create download job with sanitized URL
+    job = DownloadJob(sanitized_url, download_type, output_dir)
     job.status = "downloading"
     
     # Log to database

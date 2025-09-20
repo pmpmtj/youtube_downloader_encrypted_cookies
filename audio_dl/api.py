@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.http import FileResponse
 from core.downloaders.audio.download_audio import download_audio
+from core.shared_utils.url_utils import YouTubeURLSanitizer, YouTubeURLError
 
 @api_view(["POST"])
 def download_audio_api(request):
@@ -11,7 +12,14 @@ def download_audio_api(request):
     if not url:
         return Response({"detail": "Missing 'url'"}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Use the core download function
+    # Validate YouTube URL before processing
+    try:
+        if not YouTubeURLSanitizer.is_youtube_url(url):
+            return Response({"detail": "Invalid YouTube URL"}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return Response({"detail": f"URL validation error: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Use the core download function (URL sanitization happens there)
     result = download_audio(url)
     
     if not result['success']:
@@ -34,6 +42,13 @@ def download_audio_api_async(request):
     url = (request.data.get("url") or "").strip()
     if not url:
         return Response({"detail": "Missing 'url'"}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Validate YouTube URL before queuing
+    try:
+        if not YouTubeURLSanitizer.is_youtube_url(url):
+            return Response({"detail": "Invalid YouTube URL"}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return Response({"detail": f"URL validation error: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
 
     # Create a unique task ID
     task_id = str(uuid.uuid4())
