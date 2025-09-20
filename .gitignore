@@ -1,65 +1,52 @@
+# Environment variables
+.env
+
+# Database
+*.sqlite3
+*.db
+
 # Python
 __pycache__/
 *.py[cod]
-*.pyo
-*.pyd
+*$py.class
 *.so
-*.egg
-*.egg-info/
-dist/
+.Python
 build/
-*.manifest
-*.spec
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
-# Django
-*.log
-local_settings.py
-#db.sqlite3
-#media/
-staticfiles/
-#static/
-.env
-
-# Virtualenv
+# Virtual environments
 venv/
-ENV/
 env/
-*.venv
+ENV/
+.venv/
 
-# IDEs and editors
+# IDE
 .vscode/
 .idea/
-*.sublime-project
-*.sublime-workspace
+*.swp
+*.swo
 
-# OS-specific
+# OS
 .DS_Store
 Thumbs.db
 
-# Migrations
-**/migrations/
-**/migrations/*.py
-!**/migrations/__init__.py
+# Django
+media/
+staticfiles/
+*.log
 
-# pytest
-.cache/
-.pytest_cache/
-
-# Coverage reports
-htmlcov/
-.coverage
-.coverage.*
-
-# MyPy
-.mypy_cache/
-
-# Pipenv
-Pipfile.lock
-
-# Jupyter Notebooks
-.ipynb_checkpoints
-
-# Docker
-*.pid
-*.seed
-*.bak
+# Background tasks
+background_tasks/

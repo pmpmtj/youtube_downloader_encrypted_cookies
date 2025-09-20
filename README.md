@@ -12,17 +12,37 @@ A Django-based YouTube audio downloader with asynchronous background processing 
 
 ## Installation
 
-1. **Install Dependencies**:
+1. **Clone and Setup**:
+   ```powershell
+   git clone <repository-url>
+   cd youtube_downloader
+   ```
+
+2. **Environment Configuration**:
+   ```powershell
+   # Copy the example environment file
+   copy .env.example .env
+   
+   # Edit .env with your database credentials
+   notepad .env
+   ```
+
+3. **Install Dependencies**:
    ```powershell
    pip install -r requirements.txt
    ```
 
-2. **Run Migrations**:
+4. **Run Migrations**:
    ```powershell
    python manage.py migrate
    ```
 
-3. **Start Services**:
+5. **Create Superuser**:
+   ```powershell
+   python manage.py createsuperuser
+   ```
+
+6. **Start Services**:
    ```powershell
    # Terminal 1: Start Django server
    python manage.py runserver

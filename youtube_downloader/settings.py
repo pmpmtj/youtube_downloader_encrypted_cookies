@@ -25,7 +25,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-s3!ida*5lt&r)cd8fd&-ty%=l#n%vn+t5bb1e*hv$g2c&nes21'
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-s3!ida*5lt&r)cd8fd&-ty%=l#n%vn+t5bb1e*hv$g2c&nes21')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -85,11 +85,11 @@ WSGI_APPLICATION = 'youtube_downloader.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'db_my_web_app',
-        'USER': 'postgres',
-        'PASSWORD': 'Rqerjme1itm',
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'NAME': os.getenv('DB_NAME', 'db_my_web_app'),
+        'USER': os.getenv('DB_USER', 'postgres'),
+        'PASSWORD': os.getenv('DB_PASSWORD', ''),
+        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'PORT': os.getenv('DB_PORT', '5432'),
     }
 }
 
