@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'rest_framework',  # Django REST Framework
     'accounts',  # Custom user authentication
     'audio_dl',
+    'video_dl',
     # Alternative: Use django-background-tasks (no Redis required)
     'background_task',
 ]

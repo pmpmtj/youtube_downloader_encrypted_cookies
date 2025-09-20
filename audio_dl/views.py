@@ -14,8 +14,8 @@ def index(request):
         if not url:
             return HttpResponseBadRequest("Missing URL.")
 
-        # Get user-specific download directory
-        user_download_dir = request.user.get_download_directory()
+        # Get user-specific download directory for audio
+        user_download_dir = request.user.get_download_directory('audio')
         
         # Check if user wants to download to remote (checkbox state)
         download_to_remote = request.POST.get('download_to_remote') == 'on'

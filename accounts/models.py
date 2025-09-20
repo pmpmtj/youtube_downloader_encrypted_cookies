@@ -50,10 +50,10 @@ class User(AbstractUser):
             self.download_uuid = uuid.uuid4()
         super().save(*args, **kwargs)
     
-    def get_download_directory(self):
+    def get_download_directory(self, download_type='audio'):
         """Get the user-specific download directory path."""
         from django.conf import settings
-        return settings.MEDIA_ROOT / 'downloads' / 'audio' / str(self.download_uuid)
+        return settings.MEDIA_ROOT / 'downloads' / download_type / str(self.download_uuid)
     
     class Meta:
         verbose_name = "User"
