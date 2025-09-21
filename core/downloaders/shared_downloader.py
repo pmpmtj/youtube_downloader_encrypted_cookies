@@ -130,8 +130,9 @@ def get_file_info(filepath: str) -> Dict[str, Any]:
 def get_format_selector(download_type: DownloadType) -> str:
     """Get the appropriate format selector for the download type."""
     if download_type == "audio":
-        # Prioritize WebM audio, then other audio-only formats, avoid video formats
-        return "bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio[ext=mp3]/bestaudio"
+        # Use bestaudio which will automatically select the best available audio-only format
+        # This will prefer higher quality formats and fall back gracefully
+        return "bestaudio"
     elif download_type == "video":
         return "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo[ext=mp4]/best[ext=mp4]/best"
     else:
@@ -173,14 +174,6 @@ def get_ydl_options(download_type: DownloadType, output_template: str, user_cook
     
     # Enhanced anti-bot detection methods (no browser cookies needed)
     base_options.update({
-        # Use YouTube's Android client API - more reliable than web scraping
-        "extractor_args": {
-            "youtube": {
-                "player_client": ["android", "web"],
-                "player_skip": ["webpage"],
-                "skip": ["hls", "dash"]  # Skip complex formats that trigger more checks
-            }
-        },
         # Additional anti-detection measures
         "user_agent": base_options["http_headers"]["User-Agent"],
         "referer": "https://www.youtube.com/",
@@ -203,9 +196,6 @@ def get_ydl_options(download_type: DownloadType, output_template: str, user_cook
     
     if download_type == "video":
         base_options["merge_output_format"] = "mp4"
-    elif download_type == "audio":
-        # Ensure audio-only downloads don't include video streams
-        base_options["format_sort"] = ["res", "ext:webm:prefer", "ext:m4a:prefer", "ext:mp3:prefer"]
     
     return base_options
 
