@@ -19,14 +19,15 @@ from .app_config import APP_CONFIG
 logger = logging.getLogger("convert_to_mp3")
 
 
-def convert_to_mp3(input_file: Union[str, Path]) -> Dict[str, Any]:
+def convert_to_mp3(input_file: Union[str, Path], output_dir: Union[str, Path] = None) -> Dict[str, Any]:
     """
     Convert an audio file to MP3 format using FFmpeg.
-    Hardcoded settings: 192k quality, saves to current working directory.
+    Hardcoded settings: 192k quality, saves to specified output directory.
     Original file removal is controlled by configuration.
     
     Args:
         input_file: Path to input audio file
+        output_dir: Directory to save MP3 file (defaults to same directory as input)
         
     Returns:
         dict: {
@@ -78,9 +79,10 @@ def convert_to_mp3(input_file: Union[str, Path]) -> Dict[str, Any]:
             'error': error_msg
         }
     
-    # Create output filename in current working directory
+    # Create output filename in specified directory (or same directory as input)
+    output_dir_path = resolve_path(output_dir) if output_dir else input_path.parent
     output_filename = input_path.stem + ".mp3"
-    output_path = Path.cwd() / output_filename
+    output_path = output_dir_path / output_filename
     
     logger.debug(f"Output path: {output_path}")
     

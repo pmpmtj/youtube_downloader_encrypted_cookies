@@ -3,6 +3,10 @@
 
 {% block title %}Cookie Management - YouTube Downloader{% endblock %}
 
+{% block nav_links %}
+<a href="{% url 'accounts:dashboard' %}" class="btn-link" style="margin-right: 1rem;">Back to Dashboard</a>
+{% endblock %}
+
 {% block content %}
 <div class="container mt-4">
     <div class="row justify-content-center">
@@ -136,24 +140,15 @@
 
                     <!-- Actions -->
                     <div class="mt-4">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <a href="{% url 'accounts:dashboard' %}" class="btn btn-outline-secondary btn-block">
-                                    <i class="fas fa-arrow-left"></i> Back to Dashboard
-                                </a>
-                            </div>
-                            {% if cookie_status.has_cookies %}
-                            <div class="col-md-6">
-                                <form method="post" action="{% url 'accounts:delete_cookies' %}" class="d-inline">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn btn-outline-danger btn-block" 
-                                            onclick="return confirm('Are you sure you want to delete your cookies?')">
-                                        <i class="fas fa-trash"></i> Delete Cookies
-                                    </button>
-                                </form>
-                            </div>
-                            {% endif %}
-                        </div>
+                        {% if cookie_status.has_cookies %}
+                        <form method="post" action="{% url 'accounts:delete_cookies' %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-danger btn-block" 
+                                    onclick="return confirm('Are you sure you want to delete your cookies?')">
+                                <i class="fas fa-trash"></i> Delete Cookies
+                            </button>
+                        </form>
+                        {% endif %}
                     </div>
 
                 </div>

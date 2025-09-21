@@ -130,7 +130,8 @@ def get_file_info(filepath: str) -> Dict[str, Any]:
 def get_format_selector(download_type: DownloadType) -> str:
     """Get the appropriate format selector for the download type."""
     if download_type == "audio":
-        return "bestaudio/best"
+        # Prioritize WebM audio, then other audio-only formats, avoid video formats
+        return "bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio[ext=mp3]/bestaudio"
     elif download_type == "video":
         return "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo[ext=mp4]/best[ext=mp4]/best"
     else:
@@ -202,6 +203,9 @@ def get_ydl_options(download_type: DownloadType, output_template: str, user_cook
     
     if download_type == "video":
         base_options["merge_output_format"] = "mp4"
+    elif download_type == "audio":
+        # Ensure audio-only downloads don't include video streams
+        base_options["format_sort"] = ["res", "ext:webm:prefer", "ext:m4a:prefer", "ext:mp3:prefer"]
     
     return base_options
 
