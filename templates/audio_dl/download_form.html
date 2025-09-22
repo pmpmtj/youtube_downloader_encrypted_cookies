@@ -37,7 +37,7 @@
         </div>
     </div>
     
-    <button type="submit" class="btn btn-block">Download Audio</button>
+    <button type="submit" class="btn btn-block" id="downloadBtn">Download Audio</button>
 </form>
 
 <small class="text-muted" id="downloadDescription">The best available audio; will download directly to your computer.</small>
@@ -46,6 +46,8 @@
 document.addEventListener('DOMContentLoaded', function() {
     const checkbox = document.getElementById('downloadToggle');
     const description = document.getElementById('downloadDescription');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const downloadForm = document.getElementById('downloadForm');
     
     function updateDescription() {
         if (checkbox.checked) {
@@ -55,7 +57,30 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
+    function disableButton() {
+        downloadBtn.disabled = true;
+        downloadBtn.innerHTML = '<span class="spinner"></span>Downloading...';
+        downloadBtn.classList.add('btn-loading');
+    }
+    
+    function enableButton() {
+        downloadBtn.disabled = false;
+        downloadBtn.innerHTML = 'Download Audio';
+        downloadBtn.classList.remove('btn-loading');
+    }
+    
     checkbox.addEventListener('change', updateDescription);
+    
+    // Handle form submission
+    downloadForm.addEventListener('submit', function(e) {
+        // Disable button immediately on form submit
+        disableButton();
+        
+        // Re-enable button after a delay (in case of errors)
+        setTimeout(function() {
+            enableButton();
+        }, 3000); // 3 second delay
+    });
     
     // Initialize description on page load
     updateDescription();
