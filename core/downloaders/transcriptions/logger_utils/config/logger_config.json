@@ -19,13 +19,9 @@
                 "level": "INFO",
                 "log_filename": "default.log"
             },
-            "core": {
-                "level": "DEBUG",
-                "log_filename": "core.log"
-            },
-            "core_CLI": {
+            "dl_transcription": {
                 "level": "DEBUG", 
-                "log_filename": "core_CLI.log"
+                "log_filename": "dl_transcription.log"
             },
             "yt_downloads_utils": {
                 "level": "DEBUG",

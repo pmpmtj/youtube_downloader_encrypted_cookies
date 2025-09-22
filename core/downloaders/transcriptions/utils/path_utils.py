@@ -60,33 +60,6 @@ def ensure_directory(path: Union[str, Path]) -> Path:
     return dir_path
 
 
-def generate_session_uuid() -> str:
-    """Generate a unique session identifier."""
-    return str(uuid.uuid4())
-
-
-def generate_video_uuid() -> str:
-    """Generate a unique video identifier."""
-    return str(uuid.uuid4())
-
-
-def create_download_structure(base_dir: Union[str, Path], session_uuid: str, 
-                            video_uuid: str, media_type: str) -> Path:
-    """
-    Create the download directory structure.
-    
-    Args:
-        base_dir: Base downloads directory
-        session_uuid: Session identifier
-        video_uuid: Video identifier  
-        media_type: Media type (audio, video, transcripts)
-    
-    Returns:
-        Path to the created directory
-    """
-    download_path = Path(base_dir) / session_uuid / video_uuid / media_type
-    return ensure_directory(download_path)
-
 
 def load_config(config_file: Union[str, Path] = None) -> Dict[str, Any]:
     """
@@ -111,21 +84,4 @@ def load_config(config_file: Union[str, Path] = None) -> Dict[str, Any]:
         raise FileNotFoundError(f"Configuration file not found: {config_path}")
     except json.JSONDecodeError as e:
         raise ValueError(f"Invalid JSON in configuration file {config_path}: {e}")
-
-
-def get_downloads_directory(config: Optional[Dict[str, Any]] = None) -> Path:
-    """
-    Get the configured downloads directory.
-    
-    Args:
-        config: Configuration dictionary (loads from file if None)
-    
-    Returns:
-        Resolved downloads directory path
-    """
-    if config is None:
-        config = load_config()
-    
-    base_dir = config.get("downloads", {}).get("base_directory", "downloads")
-    return resolve_path(base_dir, BASE_DIR)
 
