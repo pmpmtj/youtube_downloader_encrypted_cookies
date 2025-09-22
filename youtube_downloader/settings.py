@@ -139,7 +139,7 @@ USE_L10N = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = '/youtube_downloader/static/'
+STATIC_URL = '/static/'
 
 # ---- Media (for storing finished downloads) ----
 # Served by Django in DEBUG only (see urls.py)
