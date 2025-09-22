@@ -1,6 +1,6 @@
 from django.urls import path
 from . import views
-from core.shared_utils import cookie_views
+from . import cookie_views
 
 app_name = 'accounts'
 

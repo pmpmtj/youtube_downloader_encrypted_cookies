@@ -13,7 +13,7 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
-from .cookie_manager import cookie_manager, get_cookie_status
+from core.shared_utils.cookie_management.cookie_manager import cookie_manager, get_cookie_status
 
 logger = logging.getLogger("cookie_views")
 

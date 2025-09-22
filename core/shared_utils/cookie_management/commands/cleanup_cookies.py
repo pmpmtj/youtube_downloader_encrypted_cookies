@@ -3,7 +3,7 @@ Management command to clean up expired cookies.
 """
 
 from django.core.management.base import BaseCommand
-from core.shared_utils.cookie_manager import cookie_manager
+from core.shared_utils.cookie_management.cookie_manager import cookie_manager
 
 
 class Command(BaseCommand):

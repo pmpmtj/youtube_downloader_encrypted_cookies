@@ -3,11 +3,13 @@
 {% block title %}Logged Out - YouTube Downloader{% endblock %}
 
 {% block content %}
-<h1>You are logged out</h1>
-
 <div class="alert alert-success">
     <strong>Success!</strong> You have been logged out successfully.
 </div>
+
+<h1>You are logged out</h1>
+
+
 
 <div class="text-center mt-4">
     <p>Thank you for using YouTube Downloader!</p>
@@ -15,7 +17,7 @@
     
     <div class="mt-4">
         <a href="{% url 'accounts:login' %}" class="btn">Sign In Again</a>
-        <a href="{% url 'accounts:signup' %}" class="btn btn-secondary">Create New Account</a>
+
     </div>
     
     <div class="mt-4">
