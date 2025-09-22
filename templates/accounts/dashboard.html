@@ -32,6 +32,24 @@
         <div class="col-md-6">
             <div class="card">
                 <div class="card-body">
+                    <h5 class="card-title">Download Transcripts</h5>
+                    <p class="card-text">Download and search YouTube video transcripts in multiple formats.</p>
+                    <a href="{% url 'transcriptions_dl:download_form' %}" class="btn btn-primary">Download Transcripts</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Search Transcripts</h5>
+                    <p class="card-text">Search across all your downloaded transcripts with advanced filtering.</p>
+                    <a href="{% url 'transcriptions_dl:search_transcripts' %}" class="btn btn-success">Search Transcripts</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
                     <h5 class="card-title">Manage Cookies</h5>
                     <p class="card-text">Manage your cookie preferences for a better experience.</p>
                     <a href="{% url 'accounts:cookie_management' %}"  class="btn btn-primary">Manage Cookies</a>

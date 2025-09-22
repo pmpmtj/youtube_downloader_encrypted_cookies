@@ -18,6 +18,9 @@ from core.downloaders.transcriptions.dl_transcription import (
     get_video_info
 )
 
+# Import search utilities
+from transcriptions_dl.search_utils import TranscriptSearchEngine, get_user_search_stats
+
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -52,10 +55,31 @@ def download_transcript_api(request):
     
     try:
         # Use the core transcript download function
-        success = download_transcript_files(url, output_dir=str(user_download_dir))
+        success, transcript_data = download_transcript_files(url, output_dir=str(user_download_dir))
         
         if not success:
             return Response({"detail": "Failed to download transcript"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Save to database (mandatory)
+        try:
+            from .db_utils import save_transcript_to_db
+            
+            video = save_transcript_to_db(
+                user=request.user,
+                video_id=transcript_data.get('video_id'),
+                video_info=transcript_data.get('video_info', {}),
+                structured_data=transcript_data.get('structured_data'),
+                segments=transcript_data.get('segments', []),
+                chapters=transcript_data.get('chapters', []),
+                clean_text=transcript_data.get('clean_text'),
+                timestamped_text=transcript_data.get('timestamped_text'),
+                source='youtube',
+                is_generated=transcript_data.get('is_generated')
+            )
+            
+        except Exception as e:
+            # Log error but continue with API response
+            print(f"⚠️ Warning: Failed to save transcript to database: {e}")
         
         # Get video info for response
         video_info = get_video_info(url)
@@ -242,3 +266,162 @@ def _find_transcript_files(download_dir, video_id):
             transcript_files['structured'] = file_path
     
     return transcript_files
+
+
+# ==================== SEARCH API ENDPOINTS ====================
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def search_transcripts_api(request):
+    """Search transcripts with advanced filtering and pagination."""
+    # Get search parameters
+    query = request.GET.get('q', '').strip()
+    search_type = request.GET.get('type', 'full_text')  # full_text, exact, fuzzy
+    page = int(request.GET.get('page', 1))
+    page_size = min(int(request.GET.get('page_size', 20)), 100)  # Max 100 per page
+    
+    # Video filters
+    video_filters = {}
+    if request.GET.get('title'):
+        video_filters['title'] = request.GET.get('title')
+    if request.GET.get('uploader'):
+        video_filters['uploader'] = request.GET.get('uploader')
+    if request.GET.get('date_from'):
+        video_filters['date_from'] = request.GET.get('date_from')
+    if request.GET.get('date_to'):
+        video_filters['date_to'] = request.GET.get('date_to')
+    if request.GET.get('duration_min'):
+        video_filters['duration_min'] = int(request.GET.get('duration_min'))
+    if request.GET.get('duration_max'):
+        video_filters['duration_max'] = int(request.GET.get('duration_max'))
+    
+    # Time range filter (for segment search)
+    time_range = None
+    if request.GET.get('time_start') and request.GET.get('time_end'):
+        time_range = (
+            float(request.GET.get('time_start')),
+            float(request.GET.get('time_end'))
+        )
+    
+    # Other filters
+    language = request.GET.get('language')
+    is_generated = request.GET.get('is_generated')
+    if is_generated is not None:
+        is_generated = is_generated.lower() == 'true'
+    
+    sort_by = request.GET.get('sort', 'relevance')  # relevance, date, duration, title
+    
+    # Perform search
+    search_engine = TranscriptSearchEngine(user=request.user)
+    
+    try:
+        results = search_engine.search_transcripts(
+            query=query,
+            search_type=search_type,
+            video_filters=video_filters,
+            time_range=time_range,
+            language=language,
+            is_generated=is_generated,
+            sort_by=sort_by,
+            page=page,
+            page_size=page_size
+        )
+        
+        return Response(results, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({
+            "detail": f"Search error: {str(e)}"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def search_chapters_api(request):
+    """Search within video chapters."""
+    query = request.GET.get('q', '').strip()
+    video_id = request.GET.get('video_id')
+    page = int(request.GET.get('page', 1))
+    page_size = min(int(request.GET.get('page_size', 20)), 100)
+    
+    search_engine = TranscriptSearchEngine(user=request.user)
+    
+    try:
+        results = search_engine.search_chapters(
+            query=query,
+            video_id=video_id,
+            page=page,
+            page_size=page_size
+        )
+        
+        return Response(results, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({
+            "detail": f"Chapter search error: {str(e)}"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_transcript_content_api(request, video_id):
+    """Get full transcript content for a specific video."""
+    format_type = request.GET.get('format', 'clean_text')
+    
+    if format_type not in ['clean_text', 'timestamped', 'structured_json']:
+        return Response({
+            "detail": "Invalid format. Must be one of: clean_text, timestamped, structured_json"
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    search_engine = TranscriptSearchEngine(user=request.user)
+    
+    try:
+        transcript = search_engine.get_video_transcript(video_id, format_type)
+        
+        if not transcript:
+            return Response({
+                "detail": "Transcript not found or not accessible"
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        return Response(transcript, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({
+            "detail": f"Error retrieving transcript: {str(e)}"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def search_suggestions_api(request):
+    """Get search suggestions based on partial query."""
+    query = request.GET.get('q', '').strip()
+    limit = min(int(request.GET.get('limit', 10)), 50)  # Max 50 suggestions
+    
+    if len(query) < 2:
+        return Response({"suggestions": []}, status=status.HTTP_200_OK)
+    
+    search_engine = TranscriptSearchEngine(user=request.user)
+    
+    try:
+        suggestions = search_engine.get_search_suggestions(query, limit)
+        return Response({"suggestions": suggestions}, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({
+            "detail": f"Error getting suggestions: {str(e)}"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def search_stats_api(request):
+    """Get search statistics for the current user."""
+    try:
+        stats = get_user_search_stats(request.user)
+        return Response(stats, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({
+            "detail": f"Error getting stats: {str(e)}"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

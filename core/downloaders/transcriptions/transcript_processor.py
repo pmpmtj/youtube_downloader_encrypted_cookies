@@ -274,7 +274,7 @@ class TranscriptProcessor:
         try:
             config = load_config()
             
-            if config.get("metadata_collection", {}).get("enabled", True):
+            if config.get("metadata_collection", {}).get("enabled", False):  # Disabled for now
                 try:
                     from .metadata_collector import collect_comprehensive_metadata
                 except ImportError:

@@ -69,7 +69,16 @@ def download_transcript(video_id: str, language_code: str, save_path: Optional[s
             transcript_data = None
             for transcript in transcript_list:
                 if hasattr(transcript, 'language_code') and transcript.language_code == language_code:
-                    transcript_data = transcript.fetch()
+                    fetched_transcript = transcript.fetch()
+                    # Extract the actual segments from the FetchedTranscript object and convert to dicts
+                    transcript_data = [
+                        {
+                            'text': snippet.text,
+                            'start': snippet.start,
+                            'duration': snippet.duration
+                        }
+                        for snippet in fetched_transcript.snippets
+                    ]
                     logger.debug(f"✅ Found transcript using transcript list method")
                     break
             

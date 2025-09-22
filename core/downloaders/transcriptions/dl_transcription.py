@@ -15,6 +15,8 @@ Dependencies:
 import sys
 import argparse
 import os
+import json
+import re
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 from yt_dlp import YoutubeDL
@@ -372,7 +374,7 @@ def print_basic_info(info: Optional[Dict]):
 
 # -------------------- Main Entry Point --------------------
 
-def download_transcript_files(url: str, output_dir: str = None, formats: List[str] = None) -> bool:
+def download_transcript_files(url: str, output_dir: str = None, formats: List[str] = None) -> tuple[bool, dict]:
     """
     Download and save transcript files for a YouTube video.
     
@@ -382,7 +384,13 @@ def download_transcript_files(url: str, output_dir: str = None, formats: List[st
         formats: List of formats to generate ['clean', 'timestamped', 'structured']
     
     Returns:
-        True if successful, False otherwise
+        Tuple of (success: bool, data: dict) where data contains:
+        - video_info: Basic video information
+        - structured_data: Structured JSON data
+        - segments: List of transcript segments
+        - chapters: List of video chapters
+        - clean_text: Clean text content
+        - timestamped_text: Timestamped text content
     """
     try:
         print(f"🎬 Processing YouTube video: {url}")
@@ -391,12 +399,12 @@ def download_transcript_files(url: str, output_dir: str = None, formats: List[st
         info = get_video_info(url)
         if info is None:
             print("❌ Failed to extract video information. Please check the URL and try again.")
-            return False
+            return False, {}
         
         video_id = info.get("id")
         if not video_id:
             print("❌ Could not extract video ID from URL.")
-            return False
+            return False, {}
         
         print(f"📹 Video: {info.get('title', 'Unknown Title')}")
         print(f"👤 Channel: {info.get('uploader', 'Unknown')}")
@@ -408,7 +416,7 @@ def download_transcript_files(url: str, output_dir: str = None, formats: List[st
         
         if not default_transcript:
             print("❌ No suitable transcript found for this video.")
-            return False
+            return False, {}
         
         language_code = default_transcript.get('language_code')
         language_name = default_transcript.get('language', language_code)
@@ -449,7 +457,7 @@ def download_transcript_files(url: str, output_dir: str = None, formats: List[st
         
         if not saved_files:
             print("❌ Failed to download transcript files.")
-            return False
+            return False, {}
         
         # Display results
         print("\n✅ Successfully generated transcript files:")
@@ -457,11 +465,90 @@ def download_transcript_files(url: str, output_dir: str = None, formats: List[st
             file_size = os.path.getsize(file_path) if os.path.exists(file_path) else 0
             print(f"   📄 {format_name}: {os.path.basename(file_path)} ({file_size:,} bytes)")
         
-        return True
+        # Collect structured data for database saving
+        data = {
+            'video_info': info,
+            'video_id': video_id,
+            'language_code': language_code,
+            'is_generated': default_transcript.get('is_generated'),
+            'structured_data': None,
+            'segments': [],
+            'chapters': [],
+            'clean_text': None,
+            'timestamped_text': None,
+        }
+        
+        # Read the generated files to extract data
+        try:
+            # Read structured JSON if available
+            if 'structured' in saved_files and os.path.exists(saved_files['structured']):
+                with open(saved_files['structured'], 'r', encoding='utf-8') as f:
+                    data['structured_data'] = json.load(f)
+                    # Extract segments and chapters from structured data
+                    transcript_data = data['structured_data'].get('transcript', {})
+                    data['segments'] = transcript_data.get('entries', [])
+                    data['chapters'] = transcript_data.get('chapters', [])
+            
+            # Read clean text if available
+            if 'clean' in saved_files and os.path.exists(saved_files['clean']):
+                with open(saved_files['clean'], 'r', encoding='utf-8') as f:
+                    data['clean_text'] = f.read()
+            
+            # Read timestamped text if available
+            if 'timestamped' in saved_files and os.path.exists(saved_files['timestamped']):
+                with open(saved_files['timestamped'], 'r', encoding='utf-8') as f:
+                    data['timestamped_text'] = f.read()
+                    # If no segments from structured data, parse from timestamped text
+                    if not data['segments']:
+                        data['segments'] = _parse_timestamped_text(data['timestamped_text'])
+        
+        except Exception as e:
+            print(f"⚠️ Warning: Could not read generated files for database saving: {e}")
+        
+        return True, data
         
     except Exception as e:
         print(f"❌ Error downloading transcript: {e}")
-        return False
+        return False, {}
+
+
+def _parse_timestamped_text(timestamped_text: str) -> List[Dict[str, Any]]:
+    """Parse timestamped text into segments for database storage."""
+    import re
+    
+    # Regex to match timestamp formats like [00:01:23] or 1:23:45.678
+    ts_re = re.compile(
+        r"^\s*(?:\[)?(?:(\d{1,2}):)?(\d{1,2}):(\d{2})(?:[\.,](\d{1,3}))?(?:\])?\s*(.*\S)\s*$"
+    )
+    
+    segments = []
+    lines = timestamped_text.strip().split('\n')
+    
+    for line in lines:
+        if not line.strip():
+            continue
+            
+        match = ts_re.match(line)
+        if not match:
+            continue
+            
+        # Convert timestamp to seconds
+        hours = int(match.group(1)) if match.group(1) else 0
+        minutes = int(match.group(2))
+        seconds = int(match.group(3))
+        milliseconds = int(match.group(4)) if match.group(4) else 0
+        
+        start_time = hours * 3600 + minutes * 60 + seconds + milliseconds / 1000.0
+        text = match.group(5).strip()
+        
+        if text:
+            segments.append({
+                'start': start_time,
+                'text': text,
+                'duration': 3.0  # Default duration
+            })
+    
+    return segments
 
 
 def main():
