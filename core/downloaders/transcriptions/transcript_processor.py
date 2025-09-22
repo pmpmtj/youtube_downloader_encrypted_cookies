@@ -11,8 +11,45 @@ from typing import List, Dict, Any, Optional, Tuple
 from pathlib import Path
 
 # Import logging
-from .logger_utils.logger_utils import setup_logger
-from .utils.path_utils import load_config
+try:
+    from .logger_utils.logger_utils import setup_logger
+    from .utils.path_utils import load_config
+except ImportError:
+    from logger_utils.logger_utils import setup_logger
+    # For standalone operation, we'll use a simple config
+    def load_config():
+        return {
+            "transcripts": {
+                "processing": {
+                    "output_formats": {
+                        "clean": True,
+                        "timestamped": True,
+                        "structured": True
+                    },
+                    "text_cleaning": {
+                        "enabled": True,
+                        "remove_filler_words": True,
+                        "normalize_whitespace": True,
+                        "fix_transcription_artifacts": True,
+                        "filler_words": ["um", "uh", "like", "you know", "so", "well", "actually", "basically", "literally"]
+                    },
+                    "chapter_detection": {
+                        "enabled": True,
+                        "min_silence_gap_seconds": 3.0,
+                        "min_chapter_length_seconds": 30.0,
+                        "include_chapter_summaries": True
+                    },
+                    "preview": {
+                        "max_lines": 10,
+                        "include_stats": True,
+                        "include_quality_indicators": True
+                    }
+                }
+            },
+            "metadata_collection": {
+                "enabled": False  # Disable for standalone operation
+            }
+        }
 
 # Setup logger for this module
 logger = setup_logger("transcript_processor")
@@ -235,11 +272,13 @@ class TranscriptProcessor:
         
         # 🆕 Add comprehensive metadata collection if enabled
         try:
-            from .utils.path_utils import load_config
             config = load_config()
             
             if config.get("metadata_collection", {}).get("enabled", True):
-                from .metadata_collector import collect_comprehensive_metadata
+                try:
+                    from .metadata_collector import collect_comprehensive_metadata
+                except ImportError:
+                    from metadata_collector import collect_comprehensive_metadata
                 
                 logger.debug("Adding comprehensive metadata to structured transcript")
                 comprehensive_metadata = collect_comprehensive_metadata(video_metadata, transcript_entries, config)

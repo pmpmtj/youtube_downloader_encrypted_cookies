@@ -11,7 +11,10 @@ import time
 from pathlib import Path
 
 # Import logging  
-from .logger_utils.logger_utils import setup_logger
+try:
+    from .logger_utils.logger_utils import setup_logger
+except ImportError:
+    from logger_utils.logger_utils import setup_logger
 
 # Setup logger for this module
 logger = setup_logger("yt_downloads_utils")
@@ -37,7 +40,10 @@ def download_transcript(video_id: str, language_code: str, save_path: Optional[s
         Dict with format names as keys and file paths as values, or single path for backward compatibility
     """
     from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, NoTranscriptFound
-    from .transcript_processor import process_transcript_data
+    try:
+        from .transcript_processor import process_transcript_data
+    except ImportError:
+        from transcript_processor import process_transcript_data
     import datetime
     
     logger.info(f"Starting transcript download: video_id={video_id}, language={language_code}, save_path={save_path}")
@@ -80,12 +86,25 @@ def download_transcript(video_id: str, language_code: str, save_path: Optional[s
                 raise Exception(f"No transcript data found for language: {language_code}")
 
             # Process transcript with new enhanced processor
-            try:
-                from .utils.path_utils import load_config
-                config = load_config()
-            except Exception as e:
-                logger.warning(f"Could not load config for transcript processing: {e}")
-                config = {}
+            # Use minimal config for standalone operation
+            config = {
+                "transcripts": {
+                    "processing": {
+                        "output_formats": {
+                            "clean": True,
+                            "timestamped": True,
+                            "structured": True
+                        },
+                        "text_cleaning": {
+                            "enabled": True,
+                            "remove_filler_words": True,
+                            "normalize_whitespace": True,
+                            "fix_transcription_artifacts": True,
+                            "filler_words": ["um", "uh", "like", "you know", "so", "well", "actually", "basically", "literally"]
+                        }
+                    }
+                }
+            }
             
             processed_results = process_transcript_data(transcript_data, video_metadata, formats, config)
             

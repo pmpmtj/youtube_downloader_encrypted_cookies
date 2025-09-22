@@ -1,20 +1,31 @@
 """
-core.py
+dl_transcription.py
 
-Core download functions for YouTube content using yt-dlp and transcript APIs.
-Handles download of audio (mp3), video (mp4), and video transcripts.
+Standalone YouTube transcript downloader that generates 3 file formats:
+- Clean text (optimized for LLM analysis)
+- Timestamped text (original format with timestamps)
+- Structured JSON (with metadata and analysis)
+
+Usage: python dl_transcription.py <youtube_url>
 
 Dependencies:
 - yt_dlp
 - youtube_transcript_api
 """
 import sys
+import argparse
+import os
+from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 from yt_dlp import YoutubeDL
 from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, NoTranscriptFound
 
 # Import logging
-from .logger_utils.logger_utils import setup_logger
+try:
+    from .logger_utils.logger_utils import setup_logger
+except ImportError:
+    # Fallback for standalone execution
+    from logger_utils.logger_utils import setup_logger
 
 # Setup logger for this module
 logger = setup_logger("core")
@@ -85,17 +96,10 @@ def list_transcript_metadata(video_id: str) -> List[Dict[str, Any]]:
 def print_and_select_default_transcript(video_id: str, preferred_language: Optional[str] = None) -> Optional[Dict[str, Any]]:
     logger.debug(f"Starting transcript discovery for video_id: {video_id}, preferred_language: {preferred_language}")
     
-    # If no preferred language provided, check config for default preference
+    # If no preferred language provided, use English as default
     if not preferred_language:
-        try:
-            from .utils.path_utils import load_config
-            config = load_config()
-            config_languages = config.get("transcripts", {}).get("preferred_languages", [])
-            if config_languages:
-                preferred_language = config_languages[0]  # Use first preferred language from config
-                logger.debug(f"Using preferred language from config: {preferred_language}")
-        except Exception as e:
-            logger.debug(f"Could not load config for language preference: {e}")
+        preferred_language = "en"  # Default to English
+        logger.debug(f"Using default preferred language: {preferred_language}")
     
     print("\nTranscript Info")
     print("-" * 40)
@@ -194,7 +198,10 @@ def preview_transcript(video_id: str, language_code: str = None, include_metadat
     logger.debug(f"Generating transcript preview for video_id: {video_id}, language: {language_code}")
     
     try:
-        from .transcript_processor import TranscriptProcessor
+        try:
+            from .transcript_processor import TranscriptProcessor
+        except ImportError:
+            from transcript_processor import TranscriptProcessor
         from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, NoTranscriptFound
         
         # If no language specified, find the default
@@ -226,54 +233,35 @@ def preview_transcript(video_id: str, language_code: str = None, include_metadat
         if not transcript_data:
             return None
         
-        # Generate basic preview using processor
-        processor = TranscriptProcessor()
+        # Generate basic preview using processor (with minimal config)
+        processor = TranscriptProcessor({})  # Empty config for standalone operation
         preview_data = processor.generate_preview(transcript_data)
         preview_data['language_code'] = language_code
         preview_data['video_id'] = video_id
         
-        # Add rich metadata if requested
+        # Add basic metadata insights (simplified without config dependency)
         if include_metadata:
             try:
-                from .metadata_collector import MetadataCollector
-                from .utils.path_utils import load_config
+                # Simple content analysis without config dependency
+                total_text = ' '.join([entry.get('text', '') for entry in transcript_data])
+                word_count = len(total_text.split())
                 
-                config = load_config()
-                if config.get("metadata_collection", {}).get("enabled", True):
-                    collector = MetadataCollector(config)
-                    
-                    # Analyze transcript content
-                    transcript_analysis = collector.analyze_transcript_content(transcript_data)
-                    
-                    # Add content insights to preview
-                    if transcript_analysis.get('content_analysis'):
-                        content_analysis = transcript_analysis['content_analysis']
-                        preview_data['content_insights'] = {
-                            'keywords': [kw['keyword'] for kw in content_analysis.get('keywords', [])[:5]],
-                            'topics': content_analysis.get('topics', [])[:3],
-                            'content_category': content_analysis.get('content_type', {}).get('primary_category', 'Unknown'),
-                            'language_detected': content_analysis.get('language_analysis', {}).get('detected_language', 'Unknown')
-                        }
-                    
-                    # Add quality insights
-                    if transcript_analysis.get('quality_assessment'):
-                        quality = transcript_analysis['quality_assessment']
-                        preview_data['quality_insights'] = {
-                            'quality_score': quality.get('quality_score', 0),
-                            'quality_category': quality.get('quality_category', 'Unknown'),
-                            'artifact_ratio': quality.get('artifact_ratio', 0)
-                        }
-                    
-                    # Add content metrics
-                    if transcript_analysis.get('content_metrics'):
-                        metrics = transcript_analysis['content_metrics']
-                        preview_data['content_metrics'] = {
-                            'speaking_rate_wpm': metrics.get('speaking_rate_wpm', 0),
-                            'lexical_diversity': round(metrics.get('lexical_diversity', 0), 2),
-                            'readability': transcript_analysis.get('content_analysis', {}).get('language_analysis', {}).get('readability_level', 'Unknown')
-                        }
-                    
-                    logger.debug("Enhanced preview with metadata insights")
+                # Basic quality indicators
+                avg_entry_length = sum(len(entry.get('text', '')) for entry in transcript_data) / len(transcript_data) if transcript_data else 0
+                quality_score = min(100, max(0, (avg_entry_length - 10) * 2))  # Simple heuristic
+                
+                preview_data['content_insights'] = {
+                    'word_count': word_count,
+                    'average_entry_length': round(avg_entry_length, 1),
+                    'content_category': 'General'  # Simplified
+                }
+                
+                preview_data['quality_insights'] = {
+                    'quality_score': round(quality_score, 1),
+                    'quality_category': 'High' if quality_score > 70 else 'Medium' if quality_score > 40 else 'Low'
+                }
+                
+                logger.debug("Added basic metadata insights")
                 
             except Exception as e:
                 logger.warning(f"Could not add metadata insights to preview: {e}")
@@ -384,30 +372,128 @@ def print_basic_info(info: Optional[Dict]):
 
 # -------------------- Main Entry Point --------------------
 
-def main():
-    print("=== YouTube Video Info Fetcher ===")
-    url = input("Enter YouTube video URL: ").strip()
-    if not url:
-        print("URL cannot be empty.")
-        return
-
+def download_transcript_files(url: str, output_dir: str = None) -> bool:
+    """
+    Download and save transcript files for a YouTube video.
+    
+    Args:
+        url: YouTube video URL
+        output_dir: Directory to save files (defaults to current directory)
+    
+    Returns:
+        True if successful, False otherwise
+    """
     try:
+        print(f"🎬 Processing YouTube video: {url}")
+        
+        # Extract video information
         info = get_video_info(url)
-        print_basic_info(info)
-
         if info is None:
-            print("❌ Cannot proceed without video information. Please check the URL and try again.")
-            sys.exit(1)
-
-        formats = info.get('formats', [])
-
-        default_transcript = print_and_select_default_transcript(info.get("id"), preferred_language=None)
-
-        if default_transcript:
-            print(f"Default transcript language: {default_transcript.get('language')}")
-
+            print("❌ Failed to extract video information. Please check the URL and try again.")
+            return False
+        
+        video_id = info.get("id")
+        if not video_id:
+            print("❌ Could not extract video ID from URL.")
+            return False
+        
+        print(f"📹 Video: {info.get('title', 'Unknown Title')}")
+        print(f"👤 Channel: {info.get('uploader', 'Unknown')}")
+        print(f"⏱️ Duration: {info.get('duration', 0)} seconds")
+        
+        # Select best transcript
+        print("\n🔍 Finding available transcripts...")
+        default_transcript = print_and_select_default_transcript(video_id, preferred_language=None)
+        
+        if not default_transcript:
+            print("❌ No suitable transcript found for this video.")
+            return False
+        
+        language_code = default_transcript.get('language_code')
+        language_name = default_transcript.get('language', language_code)
+        print(f"✅ Selected transcript: {language_name} ({language_code})")
+        
+        # Set output directory
+        if output_dir is None:
+            output_dir = os.getcwd()
+        else:
+            os.makedirs(output_dir, exist_ok=True)
+        
+        # Generate base filename
+        safe_title = "".join(c for c in info.get('title', 'video') if c.isalnum() or c in (' ', '-', '_')).rstrip()
+        base_filename = f"{video_id}_{language_code}_{safe_title[:50]}"
+        base_path = os.path.join(output_dir, base_filename)
+        
+        print(f"\n💾 Saving files to: {output_dir}")
+        
+        # Import the download function
+        try:
+            from .yt_downloads_utils import download_transcript
+        except ImportError:
+            from yt_downloads_utils import download_transcript
+        
+        # Download transcript in all 3 formats
+        print("📥 Downloading transcript...")
+        saved_files = download_transcript(
+            video_id=video_id,
+            language_code=language_code,
+            save_path=base_path,
+            formats=['clean', 'timestamped', 'structured'],
+            video_metadata=info
+        )
+        
+        if not saved_files:
+            print("❌ Failed to download transcript files.")
+            return False
+        
+        # Display results
+        print("\n✅ Successfully generated transcript files:")
+        for format_name, file_path in saved_files.items():
+            file_size = os.path.getsize(file_path) if os.path.exists(file_path) else 0
+            print(f"   📄 {format_name}: {os.path.basename(file_path)} ({file_size:,} bytes)")
+        
+        return True
+        
     except Exception as e:
-        print(f"\nError: {e}")
+        print(f"❌ Error downloading transcript: {e}")
+        return False
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Download YouTube video transcripts in 3 formats (clean, timestamped, structured)",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python dl_transcription.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+  python dl_transcription.py "https://youtu.be/dQw4w9WgXcQ" --output-dir ./transcripts
+        """
+    )
+    
+    parser.add_argument("url", help="YouTube video URL")
+    parser.add_argument("--output-dir", "-o", help="Output directory (defaults to current directory)")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
+    
+    args = parser.parse_args()
+    
+    if not args.url.strip():
+        print("❌ URL cannot be empty.")
+        sys.exit(1)
+    
+    # Set up logging level
+    if args.verbose:
+        import logging
+        logging.getLogger().setLevel(logging.DEBUG)
+    
+    print("=== YouTube Transcript Downloader ===")
+    
+    success = download_transcript_files(args.url, args.output_dir)
+    
+    if success:
+        print("\n🎉 Transcript download completed successfully!")
+        sys.exit(0)
+    else:
+        print("\n💥 Transcript download failed.")
         sys.exit(1)
 
 
