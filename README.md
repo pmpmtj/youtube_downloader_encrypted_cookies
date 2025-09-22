@@ -1,12 +1,14 @@
 # YouTube Downloader - Django Web Application
 
-A comprehensive Django-based YouTube downloader with both audio and video download capabilities, featuring asynchronous background processing, user authentication, and a modern web interface.
+A comprehensive Django-based YouTube downloader with audio, video, and transcript download capabilities, featuring PostgreSQL full-text search, asynchronous background processing, user authentication, and a modern web interface.
 
 ## 🚀 Features
 
 ### Core Functionality
 - **Audio Downloads**: High-quality audio extraction (prefers .m4a format)
 - **Video Downloads**: Full video downloads (prefers .mp4 format)
+- **Transcript Downloads**: YouTube transcript extraction in multiple formats (clean text, timestamped, structured JSON)
+- **PostgreSQL Full-Text Search**: Advanced search capabilities for transcripts with GIN indexing
 - **User Authentication**: Secure user accounts with email-based login
 - **File Management**: Automatic organization in user-specific directories
 - **Database Logging**: Complete download tracking and metadata storage
@@ -15,9 +17,11 @@ A comprehensive Django-based YouTube downloader with both audio and video downlo
 - **Synchronous Downloads**: Immediate download via web interface
 - **Asynchronous Downloads**: Background processing for long-running downloads
 - **REST API**: Full RESTful API with status tracking
-- **Web Interface**: Clean, responsive UI for both audio and video downloads
+- **Web Interface**: Clean, responsive UI for audio, video, and transcript downloads
+- **Advanced Search**: PostgreSQL-powered full-text search with filtering and faceting
 - **No Redis Required**: Uses Django database for task storage
 - **User-Specific Storage**: Each user has their own download directories
+- **Database Models**: Sophisticated models with PostgreSQL features (SearchVectorField, GIN indexes)
 
 ## 📁 Project Structure
 
@@ -27,6 +31,12 @@ youtube_downloader/
 │   └── cookie_views.py      # Cookie management views
 ├── audio_dl/                # Audio download functionality
 ├── video_dl/                # Video download functionality
+├── transcriptions_dl/       # Transcript download and search functionality
+│   ├── models.py           # PostgreSQL models with full-text search
+│   ├── views.py            # Web interface for downloads and search
+│   ├── api.py              # REST API endpoints
+│   ├── search_utils.py     # Advanced search engine
+│   └── db_utils.py         # Database utilities
 ├── cookie_management/       # Cookie management system (top-level)
 │   ├── cookie_manager.py    # Core cookie functionality
 │   └── commands/
@@ -35,16 +45,25 @@ youtube_downloader/
 │   ├── downloaders/         # Download business logic
 │   │   ├── audio/           # Audio-specific download logic
 │   │   ├── video/           # Video-specific download logic
+│   │   ├── transcriptions/  # Transcript download logic
+│   │   │   ├── dl_transcription.py  # Core transcript downloader
+│   │   │   ├── metadata_collector.py  # Video metadata extraction
+│   │   │   ├── transcript_processor.py  # Text processing
+│   │   │   └── logger_utils/  # Logging utilities
 │   │   └── shared_downloader.py  # Common download functionality
 │   └── shared_utils/        # Shared utilities (logging, paths, etc.)
 ├── templates/               # HTML templates
 │   ├── audio_dl/           # Audio download templates
 │   ├── video_dl/           # Video download templates
+│   ├── transcriptions_dl/  # Transcript templates
+│   │   ├── download_form.html  # Transcript download form
+│   │   └── search_form.html    # Advanced search interface
 │   └── accounts/           # Authentication templates
 ├── media/                   # Downloaded files storage
 │   └── downloads/
 │       ├── audio/          # User audio downloads
-│       └── video/          # User video downloads
+│       ├── video/          # User video downloads
+│       └── transcripts/    # User transcript downloads
 └── logs/                   # Application logs
 ```
 
@@ -111,12 +130,18 @@ youtube_downloader/
 - **Main Page**: `http://127.0.0.1:8000/` (redirects to audio downloads)
 - **Audio Downloads**: `http://127.0.0.1:8000/download/`
 - **Video Downloads**: `http://127.0.0.1:8000/video/download/`
+- **Transcript Downloads**: `http://127.0.0.1:8000/transcriptions/download/`
+- **Transcript Search**: `http://127.0.0.1:8000/transcriptions/search/`
 - **User Dashboard**: `http://127.0.0.1:8000/accounts/dashboard/`
 - **Admin Interface**: `http://127.0.0.1:8000/admin/`
 
 ### Features
 - **User Registration/Login**: Secure account creation and authentication
-- **Download Forms**: Easy-to-use forms for both audio and video downloads
+- **Download Forms**: Easy-to-use forms for audio, video, and transcript downloads
+- **Multiple Transcript Formats**: Choose from clean text, timestamped, or structured JSON formats
+- **Advanced Search Interface**: Full-text search across all your downloaded transcripts
+- **Search Filtering**: Filter by video title, uploader, date range, duration, language, and more
+- **PostgreSQL Full-Text Search**: Fast and accurate search with PostgreSQL GIN indexing
 - **Download Options**: Choose to download to computer or save to server only
 - **Status Tracking**: Real-time download progress monitoring
 - **File Management**: View and download completed files
@@ -155,6 +180,47 @@ $taskData = $response.Content | ConvertFrom-Json
 $taskId = $taskData.task_id
 ```
 
+### Transcript Downloads
+
+#### Synchronous Download
+```powershell
+# Download transcript files immediately (multiple formats)
+Invoke-WebRequest -Uri "http://localhost:8000/transcriptions/api/download/" -Method POST -Headers @{"Content-Type"="application/json"} -Body '{"url": "https://www.youtube.com/watch?v=VIDEO_ID"}'
+```
+
+#### Asynchronous Download
+```powershell
+# Queue transcript download for background processing
+$response = Invoke-WebRequest -Uri "http://localhost:8000/transcriptions/api/download-async/" -Method POST -Headers @{"Content-Type"="application/json"} -Body '{"url": "https://www.youtube.com/watch?v=VIDEO_ID"}'
+$taskData = $response.Content | ConvertFrom-Json
+$taskId = $taskData.task_id
+```
+
+#### Transcript Preview
+```powershell
+# Preview transcript content before downloading
+$response = Invoke-WebRequest -Uri "http://localhost:8000/transcriptions/api/preview/?url=https://www.youtube.com/watch?v=VIDEO_ID" -Method GET
+$previewData = $response.Content | ConvertFrom-Json
+Write-Host "Video: $($previewData.video_info.title)"
+Write-Host "Preview: $($previewData.preview_text)"
+```
+
+#### Search Transcripts
+```powershell
+# Search across all user transcripts
+$response = Invoke-WebRequest -Uri "http://localhost:8000/transcriptions/api/search/" -Method GET -Headers @{"Authorization"="Bearer YOUR_TOKEN"} -Body "q=search term&type=full_text&page=1"
+$searchResults = $response.Content | ConvertFrom-Json
+Write-Host "Found $($searchResults.total_results) results"
+```
+
+#### Get Transcript Content
+```powershell
+# Get full transcript content for a specific video
+$response = Invoke-WebRequest -Uri "http://localhost:8000/transcriptions/api/transcript/VIDEO_ID/" -Method GET -Headers @{"Authorization"="Bearer YOUR_TOKEN"}
+$transcriptData = $response.Content | ConvertFrom-Json
+Write-Host "Title: $($transcriptData.video.title)"
+```
+
 ### Status and Results
 
 #### Check Task Status
@@ -189,6 +255,21 @@ python -c "from audio_dl.models import DownloadJob; [print(f'Pending: {j.downloa
 python -c "from audio_dl.models import DownloadJob; [print(f'Completed: {j.filename} - {j.file_size} bytes') for j in DownloadJob.objects.filter(status='completed')]"
 ```
 
+### Check Transcript Data
+```powershell
+# List all transcript videos
+python -c "from transcriptions_dl.models import Video; [print(f'Video: {v.video_id} - {v.title[:50]} - {v.user.email}') for v in Video.objects.all()]"
+
+# Check transcript statistics
+python -c "from transcriptions_dl.models import Video, TranscriptSegment; print(f'Total videos: {Video.objects.count()}'); print(f'Total segments: {TranscriptSegment.objects.count()}')"
+
+# Search transcript content
+python -c "from transcriptions_dl.search_utils import TranscriptSearchEngine; from accounts.models import User; engine = TranscriptSearchEngine(User.objects.first()); results = engine.search_transcripts('your search term'); print(f'Found {results.total_results if results else 0} results')"
+
+# Check user transcript stats
+python -c "from transcriptions_dl.search_utils import get_user_search_stats; from accounts.models import User; stats = get_user_search_stats(User.objects.first()); print(f'User has {stats.get(\"total_videos\", 0)} videos, {stats.get(\"total_segments\", 0)} segments')"
+```
+
 ### Background Task Management
 ```powershell
 # List all background tasks
@@ -217,11 +298,16 @@ Get-ChildItem -Path "media\downloads\audio\" -Recurse | Select-Object Name, Leng
 # List all video files
 Get-ChildItem -Path "media\downloads\video\" -Recurse | Select-Object Name, Length, LastWriteTime | Format-Table
 
+# List all transcript files
+Get-ChildItem -Path "media\downloads\transcripts\" -Recurse | Select-Object Name, Length, LastWriteTime | Format-Table
+
 # Get total size of all downloads
 $audioSize = (Get-ChildItem -Path "media\downloads\audio\" -Recurse | Measure-Object -Property Length -Sum).Sum
 $videoSize = (Get-ChildItem -Path "media\downloads\video\" -Recurse | Measure-Object -Property Length -Sum).Sum
-$totalSize = $audioSize + $videoSize
+$transcriptSize = (Get-ChildItem -Path "media\downloads\transcripts\" -Recurse | Measure-Object -Property Length -Sum).Sum
+$totalSize = $audioSize + $videoSize + $transcriptSize
 Write-Host "Total downloads size: $([math]::Round($totalSize/1MB, 2)) MB"
+Write-Host "Audio: $([math]::Round($audioSize/1MB, 2)) MB, Video: $([math]::Round($videoSize/1MB, 2)) MB, Transcripts: $([math]::Round($transcriptSize/1MB, 2)) MB"
 ```
 
 ### Clean Up Old Files
@@ -270,10 +356,12 @@ The application follows a clean, modular architecture:
   - Authentication, user accounts, cookie management views
   - Web interface for cookie upload/management
 
-- **`audio_dl/` & `video_dl/`** - Django apps
+- **`audio_dl/`, `video_dl/` & `transcriptions_dl/`** - Django apps
   - Web views, API endpoints, background tasks
   - Bridge between web interface and core downloaders
   - Handle user authentication and cookie retrieval
+  - PostgreSQL full-text search (transcriptions_dl)
+  - Advanced search and filtering capabilities
 
 ## 📝 Complete Example Workflow
 
@@ -291,12 +379,18 @@ python manage.py process_tasks
 # 4. Download video via web interface
 # Visit: http://127.0.0.1:8000/video/download/
 
-# 5. Or use API for programmatic access
+# 5. Download transcripts via web interface
+# Visit: http://127.0.0.1:8000/transcriptions/download/
+
+# 6. Search transcripts via web interface
+# Visit: http://127.0.0.1:8000/transcriptions/search/
+
+# 7. Or use API for programmatic access
 $response = Invoke-WebRequest -Uri "http://localhost:8000/video/api/download-video-async/" -Method POST -Headers @{"Content-Type"="application/json"} -Body '{"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}'
 $taskData = $response.Content | ConvertFrom-Json
 $taskId = $taskData.task_id
 
-# 6. Monitor progress
+# 8. Monitor progress
 do {
     Start-Sleep -Seconds 5
     $statusResponse = Invoke-WebRequest -Uri "http://localhost:8000/api/jobs/$taskId/" -Method GET
@@ -304,7 +398,7 @@ do {
     Write-Host "Status: $($statusData.status)"
 } while ($statusData.status -ne "completed")
 
-# 7. Download the result
+# 9. Download the result
 $resultResponse = Invoke-WebRequest -Uri "http://localhost:8000/api/jobs/$taskId/result/" -Method GET
 $filename = "downloaded_$(Get-Date -Format 'yyyyMMdd_HHmmss').mp4"
 [System.IO.File]::WriteAllBytes($filename, $resultResponse.Content)
@@ -344,8 +438,64 @@ python manage.py process_tasks
 - **djangorestframework 3.16.1**: API framework
 - **django-background-tasks 1.2.8**: Background task processing
 - **yt-dlp 2025.9.5**: YouTube video/audio extraction
-- **psycopg2**: PostgreSQL adapter (if using PostgreSQL)
+- **youtube-transcript-api >=0.6.2**: YouTube transcript extraction
+- **psycopg2-binary 2.9.10**: PostgreSQL adapter with full-text search support
 - **python-dotenv**: Environment variable management
+- **cryptography 46.0.1**: Secure cookie encryption
+
+## 🔍 Search & Transcript Features
+
+### PostgreSQL Full-Text Search
+The application leverages PostgreSQL's advanced full-text search capabilities:
+
+- **GIN Indexes**: Optimized for fast text search across millions of transcript segments
+- **SearchVectorField**: Automatic search vector generation for all transcript text
+- **English Language Configuration**: Optimized for English text with stemming and stop words
+- **Relevance Ranking**: Results ranked by PostgreSQL's built-in relevance scoring
+
+### Advanced Search Options
+
+#### Search Types
+- **Full-Text Search**: Search within transcript content using PostgreSQL's powerful text search
+- **Chapter Search**: Search specifically within video chapter titles and descriptions
+- **Video Metadata Search**: Search by video title, uploader, and other metadata
+
+#### Filtering Options
+- **Date Range**: Filter videos by upload date or processing date
+- **Duration**: Filter by video length (minimum/maximum seconds)
+- **Language**: Filter by transcript language (auto-detected)
+- **Source Type**: Filter by manual vs auto-generated transcripts
+- **Uploader**: Filter by specific YouTube channels
+
+#### Time-Based Search
+- **Segment Time Range**: Find content within specific time ranges of videos
+- **Chapter Navigation**: Jump directly to relevant video chapters
+- **Timestamp Precision**: Search results include exact timestamps for navigation
+
+### Database Models
+
+The transcript system uses sophisticated PostgreSQL models:
+
+#### Video Model
+- Stores video metadata, duration, language, and processing information
+- Indexes on user, video_id, and processing timestamp
+- JSON field for extensible metadata storage
+
+#### TranscriptSegment Model
+- Individual text segments with precise timestamps
+- SearchVectorField for full-text search with GIN indexing
+- Text hashing for deduplication
+- Support for multiple transcript sources
+
+#### Chapter Model
+- Video chapter information with start/end times
+- Chapter summaries and navigation support
+- Ordered by timestamp for sequential access
+
+#### RawAsset Model
+- Stores original transcript files in multiple formats
+- Clean text, timestamped text, and structured JSON
+- One asset per type per video with unique constraints
 
 ## 🍪 Cookie Management
 
