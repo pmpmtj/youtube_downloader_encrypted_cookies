@@ -14,7 +14,7 @@ from django.conf import settings
 # (keeps behavior identical between sync and async paths)
 from core.downloaders.audio.download_audio import download_audio
 from core.shared_utils.url_utils import YouTubeURLSanitizer, YouTubeURLError
-from core.shared_utils.cookie_management.cookie_manager import get_user_cookies
+from cookie_management.cookie_manager import get_user_cookies
 
 
 @background(schedule=0)  # Run immediately

@@ -8,7 +8,7 @@ from core.downloaders.shared_downloader import get_file_info
 from core.shared_utils.app_config import APP_CONFIG
 from core.shared_utils.security_utils import get_client_ip, log_request_info
 from core.shared_utils.rate_limiting import get_download_stats, is_ip_allowed
-from core.shared_utils.cookie_management.cookie_manager import get_user_cookies
+from cookie_management.cookie_manager import get_user_cookies
 
 @login_required
 def index(request):
@@ -72,7 +72,7 @@ def index(request):
     download_stats = get_download_stats(client_ip)
     
     # Get cookie status
-    from core.shared_utils.cookie_management.cookie_manager import get_cookie_status
+    from cookie_management.cookie_manager import get_cookie_status
     cookie_status = get_cookie_status(request.user)
     
     context = {

@@ -9,7 +9,7 @@ from core.downloaders.audio.download_audio import download_audio
 from core.shared_utils.url_utils import YouTubeURLSanitizer, YouTubeURLError
 from core.downloaders.shared_downloader import get_file_info
 from core.shared_utils.app_config import APP_CONFIG
-from core.shared_utils.cookie_management.cookie_manager import get_user_cookies
+from cookie_management.cookie_manager import get_user_cookies
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])

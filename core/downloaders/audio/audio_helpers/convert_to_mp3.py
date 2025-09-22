@@ -12,8 +12,8 @@ import logging
 from pathlib import Path
 from typing import Union, Dict, Any
 
-from .path_utils import resolve_path
-from .app_config import APP_CONFIG
+from core.shared_utils.path_utils import resolve_path
+from core.shared_utils.app_config import APP_CONFIG
 
 # Initialize logger for this module
 logger = logging.getLogger("convert_to_mp3")
