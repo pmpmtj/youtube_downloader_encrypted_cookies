@@ -5,3 +5,4 @@ django-background-tasks==1.2.8
 python-dotenv
 psycopg2-binary==2.9.10
 cryptography==46.0.1
+youtube-transcript-api>=0.6.2
