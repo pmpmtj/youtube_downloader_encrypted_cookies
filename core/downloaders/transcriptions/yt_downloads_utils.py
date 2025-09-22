@@ -62,7 +62,7 @@ def download_transcript(video_id: str, language_code: str, save_path: Optional[s
             logger.debug(f"Transcript download attempt {attempt + 1}/{max_retries + 1}")
             
             # Use the utility function from core.py for API compatibility
-            from dl_transcription import _get_transcript_list
+            from .dl_transcription import _get_transcript_list
             transcript_list = _get_transcript_list(video_id)
             
             # Find the transcript for our language and fetch it

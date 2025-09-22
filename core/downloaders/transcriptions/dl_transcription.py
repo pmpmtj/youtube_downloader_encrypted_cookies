@@ -372,13 +372,14 @@ def print_basic_info(info: Optional[Dict]):
 
 # -------------------- Main Entry Point --------------------
 
-def download_transcript_files(url: str, output_dir: str = None) -> bool:
+def download_transcript_files(url: str, output_dir: str = None, formats: List[str] = None) -> bool:
     """
     Download and save transcript files for a YouTube video.
     
     Args:
         url: YouTube video URL
         output_dir: Directory to save files (defaults to current directory)
+        formats: List of formats to generate ['clean', 'timestamped', 'structured']
     
     Returns:
         True if successful, False otherwise
@@ -426,19 +427,23 @@ def download_transcript_files(url: str, output_dir: str = None) -> bool:
         
         print(f"\n💾 Saving files to: {output_dir}")
         
+        # Set default formats if none provided
+        if formats is None:
+            formats = ['clean', 'timestamped', 'structured']
+        
         # Import the download function
         try:
             from .yt_downloads_utils import download_transcript
         except ImportError:
             from yt_downloads_utils import download_transcript
         
-        # Download transcript in all 3 formats
+        # Download transcript in selected formats
         print("📥 Downloading transcript...")
         saved_files = download_transcript(
             video_id=video_id,
             language_code=language_code,
             save_path=base_path,
-            formats=['clean', 'timestamped', 'structured'],
+            formats=formats,
             video_metadata=info
         )
         
