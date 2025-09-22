@@ -24,10 +24,15 @@ A comprehensive Django-based YouTube downloader with both audio and video downlo
 ```
 youtube_downloader/
 ├── accounts/                 # User authentication and management
+│   └── cookie_views.py      # Cookie management views
 ├── audio_dl/                # Audio download functionality
 ├── video_dl/                # Video download functionality
-├── core/                    # Shared utilities and downloaders
-│   ├── downloaders/
+├── cookie_management/       # Cookie management system (top-level)
+│   ├── cookie_manager.py    # Core cookie functionality
+│   └── commands/
+│       └── cleanup_cookies.py  # Management command
+├── core/                    # Core business logic and utilities
+│   ├── downloaders/         # Download business logic
 │   │   ├── audio/           # Audio-specific download logic
 │   │   ├── video/           # Video-specific download logic
 │   │   └── shared_downloader.py  # Common download functionality
@@ -193,6 +198,15 @@ python -c "from background_task.models import Task; [print(f'ID: {t.id}, Name: {
 python -c "from background_task.models import Task; from datetime import datetime, timedelta; Task.objects.filter(locked_at__isnull=False, locked_at__lt=datetime.now()-timedelta(hours=1)).delete()"
 ```
 
+### Cookie Management Commands
+```powershell
+# Clean up expired cookies
+python manage.py cleanup_cookies
+
+# Check cookie management status
+python -c "from cookie_management.cookie_manager import cookie_manager; print(f'Active users with cookies: {len(cookie_manager.get_all_cookie_users())}')"
+```
+
 ## 📁 File Management
 
 ### Check Downloaded Files
@@ -231,6 +245,35 @@ Get-ChildItem -Path "media\downloads\" -Recurse | Where-Object {$_.Length -gt 50
 - Download quality preferences
 - File format settings
 - Logging configuration
+
+## 🏗️ Architecture Overview
+
+### Module Organization
+
+The application follows a clean, modular architecture:
+
+- **`cookie_management/`** - Top-level cookie management system
+  - Handles secure cookie storage, encryption, and retrieval
+  - Provides management commands for cleanup
+  - Used by all download modules for authentication
+
+- **`core/downloaders/`** - Business logic for downloads
+  - Pure download functionality without web concerns
+  - Accepts cookies as parameters (decoupled from storage)
+  - Handles yt-dlp integration and file processing
+
+- **`core/shared_utils/`** - Shared utilities
+  - Path resolution, logging, security, rate limiting
+  - Used across all modules
+
+- **`accounts/`** - User management and web interface
+  - Authentication, user accounts, cookie management views
+  - Web interface for cookie upload/management
+
+- **`audio_dl/` & `video_dl/`** - Django apps
+  - Web views, API endpoints, background tasks
+  - Bridge between web interface and core downloaders
+  - Handle user authentication and cookie retrieval
 
 ## 📝 Complete Example Workflow
 
@@ -370,7 +413,7 @@ YouTube uses sophisticated bot detection that can block automated downloads. By 
 #### Check Cookie Status
 ```powershell
 # Get current cookie status
-$response = Invoke-WebRequest -Uri "http://localhost:8000/accounts/cookie-api/" -Method GET -Headers @{"Authorization"="Bearer YOUR_TOKEN"}
+$response = Invoke-WebRequest -Uri "http://localhost:8000/accounts/api/cookies/" -Method GET -Headers @{"Authorization"="Bearer YOUR_TOKEN"}
 $cookieStatus = $response.Content | ConvertFrom-Json
 Write-Host "Has cookies: $($cookieStatus.has_cookies)"
 Write-Host "Expires: $($cookieStatus.expires_at)"
@@ -384,7 +427,7 @@ $body = @{
     cookie_content = $cookieContent
 } | ConvertTo-Json
 
-$response = Invoke-WebRequest -Uri "http://localhost:8000/accounts/cookie-api/" -Method POST -Headers @{"Content-Type"="application/json"; "Authorization"="Bearer YOUR_TOKEN"} -Body $body
+$response = Invoke-WebRequest -Uri "http://localhost:8000/accounts/api/cookies/" -Method POST -Headers @{"Content-Type"="application/json"; "Authorization"="Bearer YOUR_TOKEN"} -Body $body
 $result = $response.Content | ConvertFrom-Json
 Write-Host "Upload result: $($result.success)"
 ```
@@ -392,7 +435,7 @@ Write-Host "Upload result: $($result.success)"
 #### Delete Cookies
 ```powershell
 # Delete stored cookies
-$response = Invoke-WebRequest -Uri "http://localhost:8000/accounts/cookie-api/" -Method DELETE -Headers @{"Authorization"="Bearer YOUR_TOKEN"}
+$response = Invoke-WebRequest -Uri "http://localhost:8000/accounts/api/cookies/" -Method DELETE -Headers @{"Authorization"="Bearer YOUR_TOKEN"}
 $result = $response.Content | ConvertFrom-Json
 Write-Host "Delete result: $($result.success)"
 ```
